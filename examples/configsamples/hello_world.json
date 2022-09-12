@@ -1,0 +1,16 @@
+{
+  "Task": {
+    "ID": "HelloWorld",
+    "LogPath": "/Users/abc",
+    "StateStore": {
+      "ID": "default",
+      "Type": "file",
+      "Path": "/Users/abc/1.data",
+      "SaveIntervalMS": 1000
+    },
+    "Pipeline": {
+      "ID": "p1",
+      "Type": "SimpleDisruptorPipeline"
+    }
+  }
+}

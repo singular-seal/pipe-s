@@ -1,0 +1,75 @@
+{
+  "Task": {
+    "ID": "task123",
+    "LogPath": "/Users/abc",
+    "StateStore": {
+      "ID": "default",
+      "Type": "file",
+      "Path": "/Users/abc/1.data",
+      "SaveIntervalMS": 15000
+    },
+    "Pipeline": {
+      "ID": "kafka-writer-pipeline",
+      "Type": "DisruptorPipeline",
+      "Input": {
+        "Type": "MySQLInput",
+        "Address": "1.1.1.1:6006",
+        "User": "root",
+        "Password": "root",
+        "BackupAddresses": [
+          "2.2.2.2:6006",
+          "3.3.3.3:6006"
+        ]
+      },
+      "Processors": [
+        {
+          "Type": "EventTransferProcessor"
+        },
+        {
+          "Type": "TableNamePatternMatcher",
+          "OutputVariable": "TableIndex",
+          "Patterns": [
+            "order_db_\\d{8}\\.order_tab_\\d{8}",
+            "account_db_\\d{8}\\.account_tab_\\d{8}"
+          ]
+        },
+        {
+          "Type": "GetColumnProcessor",
+          "ColumnIndexVariable": "TableIndex",
+          "Columns": [
+            "order_id",
+            "account_id"
+          ],
+          "OutputVariable": "PartitionKey"
+        },
+        {
+          "Type": "JsonMarshal"
+        }
+      ],
+      "Output": {
+        "Type": "ShardingOutput",
+        "ShardingKey": "TableIndex",
+        "Outputs": [
+          {
+            "KeyVariable": "PartitionKey",
+            "ServerAddresses": [
+              "1.1.1.1:1111",
+              "2.2.2.2:2222"
+            ],
+            "Topic": "mytopic-order",
+            "Type": "KafkaOutput"
+          },
+          {
+            "KeyVariable": "PartitionKey",
+            "ServerAddresses": [
+              "1.1.1.3:1111",
+              "2.2.2.4:2222"
+            ],
+            "Topic": "mytopic-account",
+            "Type": "KafkaOutput"
+          }
+        ]
+      }
+    }
+  }
+}
