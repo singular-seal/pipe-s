@@ -1,0 +1,51 @@
+{
+  "Task": {
+    "ID": "MysqlScan",
+    "LogPath": ".",
+    "StateStore": {
+      "ID": "default",
+      "Type": "file",
+      "Path": "1.data",
+      "SyncIntervalMS": 100
+    },
+    "Pipeline": {
+      "ID": "hello-world-pipeline",
+      "Type": "DisruptorPipeline",
+      "Input": {
+        "Type": "MysqlScanInput",
+        "Host": "192.168.18.14",
+        "Port": 3306,
+        "User": "admin",
+        "Password": "admin",
+        "TableNameRegex":"^test_src_db.*"
+      },
+      "Processors": [
+        {
+          "Type": "MysqlDMLToDBChangeConverter"
+        },
+        {
+          "Type": "DBChangeMappingProcessor",
+          "TableNamePattern": "^([a-z]+)\\d+$",
+          "Mappings": [
+            {
+              "Source": {
+                "DB": "test_src_db"
+              },
+              "Target": {
+                "DB": "test_dest_db"
+              }
+            }
+          ]
+        }
+      ],
+      "Output": {
+        "Type": "MysqlCheckOutput",
+        "Host": "192.168.18.14",
+        "Port": 3307,
+        "User": "root",
+        "Password": "root",
+        "ResultFilePath": "/Users/xxx/development/check_result.txt"
+      }
+    }
+  }
+}

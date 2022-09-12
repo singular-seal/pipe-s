@@ -1,0 +1,37 @@
+{
+  "Task": {
+    "ID": "HelloWorld",
+    "LogPath": ".",
+    "StateStore": {
+      "ID": "default",
+      "Type": "zookeeper",
+      "SyncIntervalMS": 10000,
+      "RootPath": "states",
+      "Addresses": [
+        "192.168.18.14:2181"
+      ]
+    },
+    "Pipeline": {
+      "ID": "hello-world-pipeline",
+      "Type": "DisruptorPipeline",
+      "Input": {
+        "Type": "MysqlBinlogInput",
+        "Address": "192.168.18.14:3306",
+        "User": "admin",
+        "Password": "admin",
+        "ReplicationMode": "filepos"
+      },
+      "Processors": [
+        {
+          "Type": "MysqlDMLToDBChangeConverter"
+        },
+        {
+          "Type": "JsonMarshaller"
+        }
+      ],
+      "Output": {
+        "Type": "DummyOutput"
+      }
+    }
+  }
+}

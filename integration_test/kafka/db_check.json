@@ -1,0 +1,38 @@
+{
+  "Task": {
+    "ID": "MysqlCheck",
+    "LogPath": ".",
+    "StateStore": {
+      "ID": "default",
+      "Type": "file",
+      "Path": "db_check_state_store.data",
+      "SyncIntervalMS": 10000
+    },
+    "Pipeline": {
+      "ID": "hello-world-pipeline",
+      "Type": "DisruptorPipeline",
+      "BufferSize": 262144,
+      "Input": {
+        "Type": "MysqlScanInput",
+        "Host": "192.168.18.14",
+        "Port": 3306,
+        "User": "admin",
+        "Password": "admin",
+        "TableNameRegex":"^pipes_test_db.*"
+      },
+      "Processors": [
+        {
+          "Type": "MysqlDMLToDBChangeConverter"
+        }
+      ],
+      "Output": {
+        "Type": "MysqlCheckOutput",
+        "Host": "192.168.18.14",
+        "Port": 3307,
+        "User": "root",
+        "Password": "root",
+        "ResultFilePath": "check_result.txt"
+      }
+    }
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "Task": {
+    "ID": "kafka_db",
+    "LogPath": ".",
+    "StateStore": {
+      "ID": "default",
+      "Type": "file",
+      "Path": "kafka_db.data",
+      "SaveIntervalMS": 15000
+    },
+    "Metrics": {
+      "Port": 7778
+    },
+    "Pipeline": {
+      "ID": "kafka-db-pipeline",
+      "Type": "DisruptorPipeline",
+      "Input": {
+        "Type": "KafkaInput",
+        "ServerAddresses": [
+          "192.168.18.14:9092"
+        ],
+        "Topics": [
+          "pipes_test_topic"
+        ],
+        "ConsumerGroup": "pipes_test_group",
+        "FromBeginning": true
+      },
+      "Processors": [
+        {
+          "Type": "DBChangeUnmarshaller"
+        }
+      ],
+      "Output": {
+        "Type": "MysqlStreamOutput",
+        "Host": "192.168.18.14",
+        "Port": 3307,
+        "User": "root",
+        "Password": "root",
+        "Concurrency": 16,
+        "RoutingBy": "PrimaryKey"
+      }
+    }
+  }
+}

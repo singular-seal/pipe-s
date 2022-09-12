@@ -1,0 +1,68 @@
+{
+  "Task": {
+    "ID": "db_kafka",
+    "LogPath": ".",
+    "StateStore": {
+      "ID": "default",
+      "Type": "file",
+      "Path": "db_kafka.data",
+      "SyncIntervalMS": 15000
+    },
+    "Metrics": {
+      "Port": 7778
+    },
+    "Pipeline": {
+      "ID": "db_kafka-pipeline",
+      "Type": "DisruptorPipeline",
+      "Input": {
+        "Type": "MysqlBinlogInput",
+        "Address": "192.168.18.14:3306",
+        "User": "admin",
+        "Password": "admin",
+        "ReplicationMode": "filepos"
+      },
+      "Processors": [
+        {
+          "Type": "MysqlDMLFilter",
+          "FullTableNamePattern": "^pipes_test_db.*"
+        },
+        {
+          "Type": "DBTableNameCatcher",
+          "TableNamePattern": "^([a-z]+)\\d+$",
+          "TableNameVariable": "LogicalTable"
+        },
+        {
+          "Type": "MysqlDMLToDBChangeConverter"
+        },
+        {
+          "Type": "ColumnValueProcessor",
+          "TableNameVariable": "LogicalTable",
+          "TableColumnMappings": {
+            "sbtest": "id"
+          },
+          "OutputVariable": "PartitionKey"
+        },
+        {
+          "Type": "ValueMapper",
+          "InputVariable": "LogicalTable",
+          "OutputVariable": "TopicName",
+          "Mappings": {
+            "sbtest": "pipes_test_topic"
+          }
+        },
+        {
+          "Type": "JsonMarshaller"
+        }
+      ],
+      "Output": {
+        "KeyVariable": "PartitionKey",
+        "TopicVariable": "TopicName",
+        "ServerAddresses": [
+          "192.168.18.14:9092"
+        ],
+        "FlushBatch": 100,
+        "Type": "KafkaOutput"
+      }
+    }
+  }
+}
