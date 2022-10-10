@@ -7,6 +7,7 @@ import (
 	"github.com/go-mysql-org/go-mysql/mysql"
 	"github.com/go-mysql-org/go-mysql/replication"
 	"github.com/google/uuid"
+	"github.com/pingcap/parser"
 	"github.com/singular-seal/pipe-s/pkg/core"
 	"github.com/singular-seal/pipe-s/pkg/log"
 	"github.com/singular-seal/pipe-s/pkg/schema"
@@ -83,6 +84,7 @@ type MysqlBinlogInput struct {
 	stateInitialized bool
 	replicationMode  string // sync by gtid or filepos
 
+	sqlParser     *parser.Parser     // sql query string parser
 	schemaStore   schema.SchemaStore // the schema store to load table schemas
 	syncer        *replication.DisruptorBinlogSyncer
 	eventConsumer *EventConsumer
@@ -97,6 +99,7 @@ func NewMysqlBinlogInput() *MysqlBinlogInput {
 		BaseInput:       core.NewBaseInput(),
 		backupAddresses: make([]*address, 0),
 		eventConsumer:   eventConsumer,
+		sqlParser:       parser.New(),
 	}
 	eventConsumer.input = input
 	eventConsumer.committed = true
@@ -461,6 +464,23 @@ func (c *EventConsumer) handleQueryEvent(pos *core.MysqlBinlogPosition, e *repli
 	if bytes.Equal(e.Query, TokenBegin) {
 		return nil
 	}
+
+	// update schema store if needed
+	stmt, err := c.input.sqlParser.ParseOneStmt(string(e.Query), "", "")
+	if err != nil {
+		c.input.GetLogger().Warn("fail parse query statement", log.Error(err), log.String("sql", string(e.Query)))
+		// maybe unsupported sql, can ignore it safely
+		return c.handleTxCommit()
+	}
+	infos := utils.ExtractFromDDL(e.Schema, stmt)
+	for _, each := range infos {
+		if len(each.DB) > 0 {
+			if err := c.input.schemaStore.DeleteTable(each.DB, each.Table); err != nil {
+				return err
+			}
+		}
+	}
+
 	// https://dev.mysql.com/doc/refman/5.7/en/implicit-commit.html
 	// handle implicit commit
 	return c.handleTxCommit()

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/pingcap/parser/ast"
 	"math/rand"
 	"time"
 )
@@ -55,4 +56,90 @@ func GenerateRandomServerID() uint32 {
 			return id
 		}
 	}
+}
+
+type DDLInfo struct {
+	DB    string
+	Table string
+	Node  ast.StmtNode
+}
+
+// ExtractFromDDL extracts DDL information from statement.
+func ExtractFromDDL(schema []byte, stmt ast.StmtNode) []*DDLInfo {
+	result := make([]*DDLInfo, 0)
+	switch v := stmt.(type) {
+	case *ast.CreateDatabaseStmt:
+		result = append(result,
+			&DDLInfo{
+				DB:    v.Name,
+				Table: "",
+				Node:  stmt,
+			})
+
+	case *ast.DropDatabaseStmt:
+		result = append(result,
+			&DDLInfo{
+				DB:    v.Name,
+				Table: "",
+				Node:  stmt,
+			})
+
+	case *ast.CreateTableStmt:
+		result = append(result,
+			&DDLInfo{
+				DB:    v.Table.Schema.String(),
+				Table: v.Table.Name.String(),
+				Node:  stmt,
+			})
+
+	case *ast.DropTableStmt:
+		for i := range v.Tables {
+			dropTableStmt := *v
+			dropTableStmt.Tables = nil
+			dropTableStmt.Tables = append(dropTableStmt.Tables, v.Tables[i])
+			result = append(result,
+				&DDLInfo{
+					DB:    v.Tables[i].Schema.String(),
+					Table: v.Tables[i].Name.String(),
+					Node:  &dropTableStmt,
+				})
+		}
+
+	case *ast.AlterTableStmt:
+		result = append(result,
+			&DDLInfo{
+				DB:    v.Table.Schema.String(),
+				Table: v.Table.Name.String(),
+				Node:  stmt,
+			})
+
+	case *ast.TruncateTableStmt:
+		result = append(result,
+			&DDLInfo{
+				DB:    v.Table.Schema.String(),
+				Table: v.Table.Name.String(),
+				Node:  stmt,
+			})
+
+	case *ast.RenameTableStmt:
+		result = append(result,
+			&DDLInfo{
+				DB:    v.OldTable.Schema.String(),
+				Table: v.OldTable.Name.String(),
+				Node:  stmt,
+			})
+
+	default:
+		result = append(result,
+			&DDLInfo{
+				DB:    "",
+				Table: "",
+				Node:  stmt,
+			})
+	}
+
+	if len(result) == 1 && result[0].DB == "" {
+		result[0].DB = string(schema)
+	}
+	return result
 }
