@@ -43,6 +43,10 @@ func (s *SimpleSchemaStore) InitWithClient(client *sql.DB) {
 	s.conn = client
 }
 
+func (s *SimpleSchemaStore) SetLogger(logger *log.Logger) {
+	s.logger = logger
+}
+
 func (s *SimpleSchemaStore) GetType() string {
 	return simple
 }

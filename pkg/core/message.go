@@ -48,6 +48,7 @@ const (
 	MetaUndefined int = iota
 	CustomVariable
 	MetaMySQLPos
+	MetaTableSchema
 	AckWaitGroup
 )
 

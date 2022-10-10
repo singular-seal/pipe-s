@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/singular-seal/pipe-s/pkg/core"
 	"github.com/singular-seal/pipe-s/pkg/log"
+	"github.com/singular-seal/pipe-s/pkg/schema"
 	"github.com/singular-seal/pipe-s/pkg/utils"
 	"strconv"
 	"strings"
@@ -82,6 +83,7 @@ type MysqlBinlogInput struct {
 	stateInitialized bool
 	replicationMode  string // sync by gtid or filepos
 
+	schemaStore   schema.SchemaStore // the schema store to load table schemas
 	syncer        *replication.DisruptorBinlogSyncer
 	eventConsumer *EventConsumer
 
@@ -162,6 +164,12 @@ func (in *MysqlBinlogInput) initSyncer() {
 }
 
 func (in *MysqlBinlogInput) Start() (err error) {
+	if in.schemaStore, err = schema.NewSimpleSchemaStoreWithParameters(in.mysqlAddress.host, in.mysqlAddress.port,
+		in.Config.User, in.Config.Password); err != nil {
+		return
+	}
+	in.schemaStore.SetLogger(in.GetLogger())
+
 	in.serverStatus, err = LoadFromServer(in.mysqlAddress.host, in.mysqlAddress.port, in.Config.User, in.Config.Password)
 	if err != nil {
 		in.GetLogger().Error("failed load mysql server status", log.Error(err))
@@ -410,11 +418,16 @@ func (c *EventConsumer) handleRowsEvent(pos *core.MysqlBinlogPosition, e *replic
 		return
 	}
 
+	tableSchema, err := c.input.schemaStore.GetTable(dbName, tableName)
+	if err != nil {
+		return err
+	}
+
 	switch op {
 	case core.DBInsert:
 		for i := range rowsEvent.Rows {
 			c.transactionOffset++
-			m := c.newDMLMessage(pos, i, e, createTime, fullTableName, op)
+			m := c.newDMLMessage(pos, i, e, createTime, fullTableName, op, tableSchema)
 			m.Data.(*core.MysqlDMLEvent).NewRow = rowsEvent.Rows[i]
 			c.input.GetOutput().Process(m)
 		}
@@ -427,7 +440,7 @@ func (c *EventConsumer) handleRowsEvent(pos *core.MysqlBinlogPosition, e *replic
 
 		for i := 0; i < len(rowsEvent.Rows)-1; i += 2 {
 			c.transactionOffset++
-			m := c.newDMLMessage(pos, i/2, e, createTime, fullTableName, op)
+			m := c.newDMLMessage(pos, i/2, e, createTime, fullTableName, op, tableSchema)
 			m.Data.(*core.MysqlDMLEvent).OldRow = rowsEvent.Rows[i]
 			m.Data.(*core.MysqlDMLEvent).NewRow = rowsEvent.Rows[i+1]
 			c.input.GetOutput().Process(m)
@@ -435,7 +448,7 @@ func (c *EventConsumer) handleRowsEvent(pos *core.MysqlBinlogPosition, e *replic
 	case core.DBDelete:
 		for i := range rowsEvent.Rows {
 			c.transactionOffset++
-			m := c.newDMLMessage(pos, i, e, createTime, fullTableName, op)
+			m := c.newDMLMessage(pos, i, e, createTime, fullTableName, op, tableSchema)
 			m.Data.(*core.MysqlDMLEvent).OldRow = rowsEvent.Rows[i]
 			c.input.GetOutput().Process(m)
 		}
@@ -454,7 +467,7 @@ func (c *EventConsumer) handleQueryEvent(pos *core.MysqlBinlogPosition, e *repli
 }
 
 func (c *EventConsumer) newDMLMessage(pos *core.MysqlBinlogPosition, rowIndex int, e *replication.BinlogEvent,
-	createTime uint64, table string, op string) *core.Message {
+	createTime uint64, table string, op string, ts *schema.Table) *core.Message {
 
 	pos.TransactionOffset = c.transactionOffset
 	pos.RowOffset = rowIndex
@@ -471,6 +484,7 @@ func (c *EventConsumer) newDMLMessage(pos *core.MysqlBinlogPosition, rowIndex in
 	}
 
 	m.SetMeta(core.MetaMySQLPos, mysqlEvent.Pos)
+	m.SetMeta(core.MetaTableSchema, ts)
 	m.Data = mysqlEvent
 	return m
 }
