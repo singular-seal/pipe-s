@@ -111,12 +111,25 @@ func UnmarshalMysqlBinlogPosition(p *MysqlBinlogPosition, data []byte) (err erro
 	return
 }
 
-// MysqlDMLEvent describes mysql event
+// MysqlDMLEvent describes mysql binlog event
 type MysqlDMLEvent struct {
-	Pos      *MysqlBinlogPosition     // replication position
-	RawEvent *replication.BinlogEvent // binlog event from go mysql
-	Table    string                   // mysql table  name
-	OPType   string                   // mysql operation type
-	OldRow   []interface{}            // old DB row values
-	NewRow   []interface{}            // new DB row values
+	Pos       *MysqlBinlogPosition     // replication position
+	RawEvent  *replication.BinlogEvent // binlog event from go mysql
+	Table     string                   // mysql table  name
+	Operation string                   // mysql operation type
+	OldRow    []interface{}            // old DB row values
+	NewRow    []interface{}            // new DB row values
+}
+
+// DBChangeEvent is the standard object describes a database row change
+type DBChangeEvent struct {
+	ID        string                 // id
+	Database  string                 // database name
+	Table     string                 // table name
+	DBTime    uint64                 // binlog time
+	EventTime uint64                 // time event is created
+	Operation string                 // insert/update/delete
+	OldRow    map[string]interface{} // DB row values before change
+	NewRow    map[string]interface{} // DB row values after change
+	ExtraInfo map[string]interface{} // can put everything else here
 }
