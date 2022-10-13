@@ -8,6 +8,7 @@ import (
 	"github.com/singular-seal/pipe-s/pkg/output/dummy"
 	"github.com/singular-seal/pipe-s/pkg/output/logoutput"
 	"github.com/singular-seal/pipe-s/pkg/pipeline/simple"
+	"github.com/singular-seal/pipe-s/pkg/processor/converter"
 	"github.com/singular-seal/pipe-s/pkg/processor/json"
 	"github.com/singular-seal/pipe-s/pkg/utils"
 )
@@ -176,4 +177,8 @@ func InitComponentBuilder(logger *log.Logger) {
 	dc.RegisterComponent("JsonMarshaller", func() core.Component {
 		return json.NewJsonMarshaller()
 	})
+	dc.RegisterComponent("MysqlDMLToDBChangeConverter", func() core.Component {
+		return converter.NewMysqlDMLToDBChangeConverter()
+	})
+
 }

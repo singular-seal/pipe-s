@@ -497,10 +497,10 @@ func (c *EventConsumer) newDMLMessage(pos *core.MysqlBinlogPosition, rowIndex in
 	m.Header.CreateTime = createTime
 
 	mysqlEvent := &core.MysqlDMLEvent{
-		Pos:       pos.SimpleCopy(),
-		RawEvent:  e,
-		Table:     table,
-		Operation: op,
+		Pos:         pos.SimpleCopy(),
+		BinlogEvent: e,
+		Table:       table,
+		Operation:   op,
 	}
 
 	m.SetMeta(core.MetaMySQLPos, mysqlEvent.Pos)
