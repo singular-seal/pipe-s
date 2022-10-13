@@ -7,6 +7,7 @@ import (
 	"github.com/singular-seal/pipe-s/pkg/core"
 	"github.com/singular-seal/pipe-s/pkg/utils"
 	"hash/fnv"
+	"strings"
 )
 
 const (
@@ -16,9 +17,9 @@ const (
 	DefaultConcurrency = 1
 	// DefaultSendBatchSize is the number of db records sent to the database each time
 	DefaultSendBatchSize = 500
-	// DefaultFlushIntervalMS is the flush interval for the outstream
+	// DefaultFlushIntervalMS is the flush interval for the output
 	DefaultFlushIntervalMS = 1000
-	// DefaultFlushBatchSize is the flush size for the outstream
+	// DefaultFlushBatchSize is the flush size for the output
 	DefaultFlushBatchSize = 30000
 )
 
@@ -40,8 +41,7 @@ type MysqlBatchOutputConfig struct {
 	Password       string
 	MaxConnections int
 
-	KeyColumns       []string // the column/columns by which we split row data to multiple processors, use pk by default
-	TableConcurrency int      // processor count for each table
+	TableConcurrency int // processor count for each table
 	FlushIntervalMS  int64
 	FlushBatchSize   int
 	SendBatchSize    int
@@ -109,55 +109,70 @@ func (o *MysqlBatchOutput) Process(m *core.Message) {
 		o.GetInput().Ack(m, core.NoSchemaError(dbChange.Database, dbChange.Table))
 		return
 	}
-
-	if len(schema.PrimaryKey) != 1 {
-		o.UpStream.AckMessage(m.Meta, fmt.Errorf("unsupported_pk_count_:%d", len(schema.PrimaryKey)))
-		return
-	}
-
-	// get pk
-	var pk interface{}
-	if dbChange.Command == core.MySQLCommandDelete {
-		pk = dbChange.OldRow[schema.PrimaryKey[0].Name]
-	} else {
-		pk = dbChange.NewRow[schema.PrimaryKey[0].Name]
-	}
-
-	processors := o.findTableProcessors(dbChange)
-	partition := o.getConcurrencyPartition(pk)
-	processors[partition].AddToBatch(pk, dbChange, m.Meta)
+	// TODO: can support more generic unique key in future
+	pk := getPKValue(dbChange, ts)
+	// get processors for current table
+	processors := o.getTableProcessors(dbChange)
+	// index number in table processors
+	index := o.getProcessorIndex(pk)
+	processors[index].Process(pk, dbChange, m.Header)
 }
 
-func (o *MysqlBatchOutput) findTableProcessors(event *core.DBChangeEvent) []*TableProcessor {
-	ftn := fmt.Sprintf("%o.%o", event.Database, event.Table)
+func getPKValue(event *core.DBChangeEvent, ts *core.Table) []interface{} {
+	result := make([]interface{}, len(ts.PKColumns))
+	for i := 0; i < len(ts.PKColumns); i++ {
+		if event.Operation == core.DBDelete {
+			result[i] = event.OldRow[ts.PKColumns[i].Name]
+		} else {
+			result[i] = event.NewRow[ts.PKColumns[i].Name]
+		}
+	}
+	return result
+}
+
+func (o *MysqlBatchOutput) getTableProcessors(event *core.DBChangeEvent) []*TableProcessor {
+	ftn := event.Database + "." + event.Table
 	processors, ok := o.tableProcessors[ftn]
 	if ok {
 		return processors
 	}
-
-	processors = make([]*TableProcessor, 0)
 	// create processors
+	processors = make([]*TableProcessor, 0)
 	for i := 0; i < o.config.TableConcurrency; i++ {
-		proc := NewLongMysqlOutStreamProcessor(o, i)
-		processors = append(processors, proc)
-		go proc.Run()
+		processor := NewTableProcessor(o, i)
+		processors = append(processors, processor)
+		go processor.Run()
 	}
 	o.tableProcessors[ftn] = processors
 	return processors
 }
 
-func (o *MysqlBatchOutput) getConcurrencyPartition(pk interface{}) int {
-	if o.config.TableConcurrency == 1 {
+func (o *MysqlBatchOutput) getProcessorIndex(key []interface{}) int {
+	if o.config.TableConcurrency < 2 {
 		return 0
 	}
 
-	hash := getFNV64aHash(fmt.Sprintf("%v", pk))
-	partition := hash % o.config.TableConcurrency
-	if partition < 0 {
-		partition += o.config.TableConcurrency
+	hash := calcHash(key)
+	index := hash % o.config.TableConcurrency
+	if index < 0 {
+		index += o.config.TableConcurrency
 	}
 
-	return partition
+	return index
+}
+
+func calcHash(pk []interface{}) int {
+	if len(pk) == 0 {
+		return 0
+	}
+	if len(pk) == 1 {
+		return getFNV64aHash(fmt.Sprintf("%v", pk))
+	}
+	var sb strings.Builder
+	for _, each := range pk {
+		sb.WriteString(fmt.Sprintf("%v", each))
+	}
+	return getFNV64aHash(sb.String())
 }
 
 func getFNV64aHash(text string) int {

@@ -8,18 +8,17 @@ import (
 	"time"
 )
 
-type IncomingMessage struct {
-	pk      interface{}
-	dbEvent *core.DBChangeEvent
-	meta    *core.MessageMeta
+type MessageInfo struct {
+	key      []interface{} // unique key of the message
+	dbChange *core.DBChangeEvent
+	header   *core.MessageHeader
 }
 
-// TableProcessor is in-charge of one db/table
 type TableProcessor struct {
-	partition         int
-	outstream         *LongMysqlOutStream
+	index             int
+	output            *MysqlBatchOutput
 	messageCollection *MessageCollection
-	incomingMessages  chan *IncomingMessage
+	messages          chan *MessageInfo
 
 	lastDumpTime int64
 
@@ -31,16 +30,15 @@ type TableProcessor struct {
 	dbClient        *sql.DB
 	flushWait       *sync.WaitGroup // for insert, update and delete concurrency control
 
-	ctx    context.Context // stop outstream context
-	logger logger.ILogger
+	ctx context.Context // stop output context
 }
 
-func NewLongMysqlOutStreamProcessor(os *LongMysqlOutStream, partition int) *TableProcessor {
+func NewTableProcessor(os *LongMysqlOutStream, index int) *TableProcessor {
 	proc := &TableProcessor{
-		partition:         partition,
-		outstream:         os,
+		index:             index,
+		output:            os,
 		messageCollection: NewMessageCollection(),
-		incomingMessages:  make(chan *IncomingMessage),
+		messages:          make(chan *MessageInfo),
 		flushSigChan:      make(chan bool),
 		toFlush:           make(chan EventMap),
 		batchCollectors:   make(map[string]*BatchCollector),
@@ -62,9 +60,9 @@ func NewLongMysqlOutStreamProcessor(os *LongMysqlOutStream, partition int) *Tabl
 func (p *TableProcessor) Run() {
 	// listen incoming
 	go func() {
-		for msg := range p.incomingMessages {
-			p.messageCollection.addToBatch(msg.pk, msg.dbEvent, msg.meta)
-			if len(p.messageCollection.events) >= p.outstream.config.FlushBatchSize {
+		for msg := range p.messages {
+			p.messageCollection.addToBatch(msg.pk, msg.dbChange, msg.header)
+			if len(p.messageCollection.events) >= p.output.config.FlushBatchSize {
 				p.flushSigChan <- true
 			}
 		}
@@ -80,14 +78,14 @@ func (p *TableProcessor) Run() {
 
 	p.lastDumpTime = time.Now().UnixNano() / 1e6
 	go func() {
-		ticker := time.NewTicker(time.Millisecond * time.Duration(p.outstream.config.FlushIntervalMS))
+		ticker := time.NewTicker(time.Millisecond * time.Duration(p.output.config.FlushIntervalMS))
 		for {
 			select {
 			case <-p.ctx.Done():
 				p.logger.Info("processor_terminated")
 				return
 			case <-ticker.C:
-				if time.Now().UnixNano()/1e6-p.lastDumpTime > p.outstream.config.FlushIntervalMS {
+				if time.Now().UnixNano()/1e6-p.lastDumpTime > p.output.config.FlushIntervalMS {
 					p.Flush()
 				}
 			case <-p.flushSigChan:
@@ -97,11 +95,11 @@ func (p *TableProcessor) Run() {
 	}()
 }
 
-func (p *TableProcessor) AddToBatch(pk interface{}, dbEvent *core.DBChangeEvent, meta *core.MessageMeta) {
-	p.incomingMessages <- &IncomingMessage{
-		pk:      pk,
-		dbEvent: dbEvent,
-		meta:    meta,
+func (p *TableProcessor) Process(key []interface{}, dbEvent *core.DBChangeEvent, header *core.MessageHeader) {
+	p.messages <- &MessageInfo{
+		key:      key,
+		dbChange: dbEvent,
+		header:   header,
 	}
 }
 
@@ -115,7 +113,7 @@ func (p *TableProcessor) Flush() {
 }
 
 func (p *TableProcessor) ProcessFlush(toProcess EventMap) {
-	//p.logger.WithField("batch_size", len(toProcess)).WithField("proc_index", p.partition).Info("longmysqlosprocessor_flushing")
+	//p.logger.WithField("batch_size", len(toProcess)).WithField("proc_index", p.index).Info("longmysqlosprocessor_flushing")
 	for pk, dataMessage := range toProcess {
 		if dataMessage.dbEvent.Command == core.MySQLCommandDelete && dataMessage.existsInDb == false {
 			// a sequence like INSERT-%-DELETE was encountered, need not execute it
@@ -147,8 +145,8 @@ func (p *TableProcessor) ProcessFlush(toProcess EventMap) {
 
 func (p *TableProcessor) helpAck(toAck []*core.MessageMeta, err error) {
 	for _, meta := range toAck {
-		p.outstream.UpStream.AckMessage(meta, err)
+		p.output.UpStream.AckMessage(meta, err)
 		// gives a more stable qps to count only after it returned from db
-		metrics.Metrics.AddSentEvent("outstream")
+		metrics.Metrics.AddSentEvent("output")
 	}
 }

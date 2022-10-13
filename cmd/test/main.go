@@ -46,10 +46,16 @@ func main() {
 
 		time.Sleep(time.Second * 3600)
 	*/
-	/*	logger := log.NewTeeWithRotate(log.DefaultOptions)
-		for i := 0; i < 20000; i++ {
-			logger.Info("demo3:", log.String("app", "start ok"),
-				log.Int("major version", 3))
-		}*/
-
+	/*	algorithm := fnv.New64a()
+		algorithm.Write([]byte("1"))
+		fmt.Println(algorithm.Sum64() % 4)
+		algorithm = fnv.New64a()
+		algorithm.Write([]byte("2"))
+		fmt.Println(algorithm.Sum64() % 4)
+		algorithm = fnv.New64a()
+		algorithm.Write([]byte("3"))
+		fmt.Println(algorithm.Sum64() % 4)
+		algorithm = fnv.New64a()
+		algorithm.Write([]byte("4"))
+		fmt.Println(algorithm.Sum64() % 4)*/
 }

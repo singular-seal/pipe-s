@@ -8,6 +8,7 @@ import (
 	"github.com/go-mysql-org/go-mysql/replication"
 	"github.com/google/uuid"
 	"github.com/pingcap/parser"
+	_ "github.com/pingcap/tidb/types/parser_driver"
 	"github.com/singular-seal/pipe-s/pkg/core"
 	"github.com/singular-seal/pipe-s/pkg/log"
 	"github.com/singular-seal/pipe-s/pkg/schema"
