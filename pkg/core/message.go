@@ -35,6 +35,15 @@ func (m *Message) GetMeta(id int) (interface{}, bool) {
 	return data, ok
 }
 
+func (m *Message) GetTableSchema() (*Table, bool) {
+	obj, ok := m.GetMeta(MetaTableSchema)
+	if !ok {
+		return nil, false
+	}
+	ts, ok := obj.(*Table)
+	return ts, ok
+}
+
 func NewMessage(typeName string) *Message {
 	return &Message{
 		Header: &MessageHeader{
@@ -113,12 +122,12 @@ func UnmarshalMysqlBinlogPosition(p *MysqlBinlogPosition, data []byte) (err erro
 
 // MysqlDMLEvent describes mysql binlog event
 type MysqlDMLEvent struct {
-	Pos         *MysqlBinlogPosition     // replication position
-	BinlogEvent *replication.BinlogEvent // binlog event from go mysql
-	Table       string                   // mysql table  name
-	Operation   string                   // mysql operation type
-	OldRow      []interface{}            // old DB row values
-	NewRow      []interface{}            // new DB row values
+	Pos           *MysqlBinlogPosition     // replication position
+	BinlogEvent   *replication.BinlogEvent // binlog event from go mysql
+	FullTableName string                   // mysql full table  name - db.table
+	Operation     string                   // mysql operation type
+	OldRow        []interface{}            // old DB row values
+	NewRow        []interface{}            // new DB row values
 }
 
 // DBChangeEvent is the standard object describes a database row change

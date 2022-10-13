@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/go-sql-driver/mysql"
+	"github.com/singular-seal/pipe-s/pkg/core"
 	"github.com/singular-seal/pipe-s/pkg/log"
 	"github.com/singular-seal/pipe-s/pkg/utils"
 )
@@ -13,7 +14,7 @@ const TableNotFoundError = 1146
 // SimpleSchemaStore always get the newest table schemas from db.
 // DDL event will trigger refreshing.
 type SimpleSchemaStore struct {
-	schemas map[string]map[string]*Table // dbname->tablename->*Table
+	schemas map[string]map[string]*core.Table // dbname->tablename->*FullTableName
 	conn    *sql.DB
 	logger  *log.Logger
 }
@@ -25,7 +26,7 @@ func NewSimpleSchemaStoreWithParameters(host string, port uint16, user string, p
 		return nil, err
 	}
 	return &SimpleSchemaStore{
-		schemas: make(map[string]map[string]*Table),
+		schemas: make(map[string]map[string]*core.Table),
 		conn:    client,
 	}, nil
 }
@@ -33,7 +34,7 @@ func NewSimpleSchemaStoreWithParameters(host string, port uint16, user string, p
 func NewSimpleSchemaStoreWithClient(client *sql.DB) *SimpleSchemaStore {
 	InitGlobal()
 	return &SimpleSchemaStore{
-		schemas: make(map[string]map[string]*Table),
+		schemas: make(map[string]map[string]*core.Table),
 		conn:    client,
 	}
 }
@@ -62,10 +63,10 @@ func (s *SimpleSchemaStore) Close() {
 
 // GetTable first tries to return table schema from cache,
 // if not found then query from DB.
-func (s *SimpleSchemaStore) GetTable(db string, table string) (ts *Table, err error) {
+func (s *SimpleSchemaStore) GetTable(db string, table string) (ts *core.Table, err error) {
 	tables, ok := s.schemas[db]
 	if !ok {
-		tables = make(map[string]*Table)
+		tables = make(map[string]*core.Table)
 		s.schemas[db] = tables
 	}
 	if ts, ok := tables[table]; ok {
@@ -96,7 +97,7 @@ func (s *SimpleSchemaStore) DeleteTable(db string, table string) error {
 }
 
 // readFromDB fetches table schema from database
-func (s *SimpleSchemaStore) readFromDB(db string, table string) (ts *Table, err error) {
+func (s *SimpleSchemaStore) readFromDB(db string, table string) (ts *core.Table, err error) {
 	stmt := fmt.Sprintf("show columns from %s.%s", db, table)
 	rows, err := s.conn.Query(stmt)
 	if err != nil {
@@ -113,11 +114,11 @@ func (s *SimpleSchemaStore) readFromDB(db string, table string) (ts *Table, err 
 	}
 	defer rows.Close()
 
-	ts = &Table{
+	ts = &core.Table{
 		TableName: table,
 		DBName:    db,
-		Columns:   make([]*Column, 0),
-		PKColumns: make([]*Column, 0),
+		Columns:   make([]*core.Column, 0),
+		PKColumns: make([]*core.Column, 0),
 	}
 
 	var columnName string
@@ -132,7 +133,7 @@ func (s *SimpleSchemaStore) readFromDB(db string, table string) (ts *Table, err 
 		if err = rows.Scan(&columnName, &rawType, &nullable, &columnKey, &defaultValue, &placeHolder); err != nil {
 			return nil, err
 		}
-		var column = Column{
+		var column = core.Column{
 			Name:  columnName,
 			Index: index,
 		}

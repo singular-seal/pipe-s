@@ -1,13 +1,14 @@
 package schema
 
 import (
+	"github.com/singular-seal/pipe-s/pkg/core"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 )
 
-var ColumnNameTypeMapping map[string]ColumnType
+var ColumnNameTypeMapping map[string]core.ColumnType
 
 // pattern for strings like 'bigint unsigned' varchar(255) which are returned from 'show columns from ...'
 var columnTypePattern = regexp.MustCompile(`^(?P<type>\w+)(\((?P<arg1>.+?)(,.+)*\))?`)
@@ -20,37 +21,37 @@ func InitGlobal() {
 	})
 }
 
-func initColumnTypeMapping() map[string]ColumnType {
-	result := make(map[string]ColumnType)
-	result["tinyint"] = TypeTinyInt
-	result["smallint"] = TypeSmallInt
-	result["mediumint"] = TypeMediumInt
-	result["int"] = TypeInt
-	result["bigint"] = TypeBigInt
-	result["decimal"] = TypeDecimal
-	result["float"] = TypeFloat
-	result["double"] = TypeDouble
-	result["bit"] = TypeBit
-	result["date"] = TypeDate
-	result["datetime"] = TypeDatetime
-	result["timestamp"] = TypeTimestamp
-	result["time"] = TypeTime
-	result["year"] = TypeYear
-	result["char"] = TypeChar
-	result["varchar"] = TypeVarchar
-	result["binary"] = TypeBinary
-	result["varbinary"] = TypeVarBinary
-	result["tinyblob"] = TypeTinyBlob
-	result["blob"] = TypeBlob
-	result["mediumblob"] = TypeMediumBlob
-	result["longblob"] = TypeLongBlob
-	result["tinytext"] = TypeTinyText
-	result["text"] = TypeText
-	result["mediumtext"] = TypeMediumText
-	result["longtext"] = TypeLongText
-	result["enum"] = TypeEnum
-	result["set"] = TypeSet
-	result["json"] = TypeJson
+func initColumnTypeMapping() map[string]core.ColumnType {
+	result := make(map[string]core.ColumnType)
+	result["tinyint"] = core.TypeTinyInt
+	result["smallint"] = core.TypeSmallInt
+	result["mediumint"] = core.TypeMediumInt
+	result["int"] = core.TypeInt
+	result["bigint"] = core.TypeBigInt
+	result["decimal"] = core.TypeDecimal
+	result["float"] = core.TypeFloat
+	result["double"] = core.TypeDouble
+	result["bit"] = core.TypeBit
+	result["date"] = core.TypeDate
+	result["datetime"] = core.TypeDatetime
+	result["timestamp"] = core.TypeTimestamp
+	result["time"] = core.TypeTime
+	result["year"] = core.TypeYear
+	result["char"] = core.TypeChar
+	result["varchar"] = core.TypeVarchar
+	result["binary"] = core.TypeBinary
+	result["varbinary"] = core.TypeVarBinary
+	result["tinyblob"] = core.TypeTinyBlob
+	result["blob"] = core.TypeBlob
+	result["mediumblob"] = core.TypeMediumBlob
+	result["longblob"] = core.TypeLongBlob
+	result["tinytext"] = core.TypeTinyText
+	result["text"] = core.TypeText
+	result["mediumtext"] = core.TypeMediumText
+	result["longtext"] = core.TypeLongText
+	result["enum"] = core.TypeEnum
+	result["set"] = core.TypeSet
+	result["json"] = core.TypeJson
 	return result
 }
 
@@ -66,7 +67,7 @@ func getWidth(arg string) int {
 }
 
 // fillTypeInfo fills column schema with type info
-func fillTypeInfo(column *Column) {
+func fillTypeInfo(column *core.Column) {
 	rawType := column.RawType
 	matches := columnTypePattern.FindStringSubmatch(rawType)
 	typeString := matches[1]
@@ -88,6 +89,6 @@ func fillTypeInfo(column *Column) {
 	case "date", "enum", "set", "json":
 		column.Type = ColumnNameTypeMapping[typeString]
 	default:
-		column.Type = TypeOther
+		column.Type = core.TypeOther
 	}
 }

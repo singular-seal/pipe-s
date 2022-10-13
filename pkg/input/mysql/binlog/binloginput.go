@@ -487,7 +487,7 @@ func (c *EventConsumer) handleQueryEvent(pos *core.MysqlBinlogPosition, e *repli
 }
 
 func (c *EventConsumer) newDMLMessage(pos *core.MysqlBinlogPosition, rowIndex int, e *replication.BinlogEvent,
-	createTime uint64, table string, op string, ts *schema.Table) *core.Message {
+	createTime uint64, table string, op string, ts *core.Table) *core.Message {
 
 	pos.TransactionOffset = c.transactionOffset
 	pos.RowOffset = rowIndex
@@ -497,10 +497,10 @@ func (c *EventConsumer) newDMLMessage(pos *core.MysqlBinlogPosition, rowIndex in
 	m.Header.CreateTime = createTime
 
 	mysqlEvent := &core.MysqlDMLEvent{
-		Pos:         pos.SimpleCopy(),
-		BinlogEvent: e,
-		Table:       table,
-		Operation:   op,
+		Pos:           pos.SimpleCopy(),
+		BinlogEvent:   e,
+		FullTableName: table,
+		Operation:     op,
 	}
 
 	m.SetMeta(core.MetaMySQLPos, mysqlEvent.Pos)

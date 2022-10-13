@@ -3,7 +3,6 @@ package converter
 import (
 	"fmt"
 	"github.com/singular-seal/pipe-s/pkg/core"
-	"github.com/singular-seal/pipe-s/pkg/schema"
 	"github.com/singular-seal/pipe-s/pkg/utils"
 )
 
@@ -33,11 +32,10 @@ func (c *MysqlDMLToDBChangeConverter) Process(msg *core.Message) (bool, error) {
 	dbChange := &core.DBChangeEvent{
 		ExtraInfo: make(map[string]interface{}),
 	}
-	obj, ok := msg.GetMeta(core.MetaTableSchema)
+	ts, ok := msg.GetTableSchema()
 	if !ok {
-		return false, fmt.Errorf("no table schema")
+		return false, core.NoSchemaError("", dml.FullTableName)
 	}
-	ts := obj.(*schema.Table)
 
 	dbChange.Database = ts.DBName
 	dbChange.Table = ts.TableName
@@ -63,7 +61,7 @@ func (c *MysqlDMLToDBChangeConverter) Process(msg *core.Message) (bool, error) {
 	return false, nil
 }
 
-func (c *MysqlDMLToDBChangeConverter) convertRow(row []interface{}, ts *schema.Table) (map[string]interface{}, error) {
+func (c *MysqlDMLToDBChangeConverter) convertRow(row []interface{}, ts *core.Table) (map[string]interface{}, error) {
 	if len(row) != len(ts.Columns) {
 		return nil, fmt.Errorf("col count mismatch - schema:%d binlog:%d", len(ts.Columns), len(row))
 	}
