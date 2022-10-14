@@ -1,5 +1,6 @@
 package batch
 
+/*
 import (
 	"github.com/singular-seal/pipe-s/pkg/core"
 	"sync"
@@ -108,3 +109,4 @@ func mergeNewUpdate(oldEvent *core.DBChangeEvent, newEvent *core.DBChangeEvent) 
 		oldEvent.NewRow[colName] = value
 	}
 }
+*/

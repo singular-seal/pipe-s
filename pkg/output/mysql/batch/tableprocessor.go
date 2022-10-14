@@ -1,5 +1,6 @@
 package batch
 
+/*
 import (
 	"context"
 	"database/sql"
@@ -150,3 +151,4 @@ func (p *TableProcessor) helpAck(toAck []*core.MessageMeta, err error) {
 		metrics.Metrics.AddSentEvent("output")
 	}
 }
+*/

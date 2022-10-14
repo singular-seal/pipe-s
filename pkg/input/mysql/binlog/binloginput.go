@@ -353,6 +353,10 @@ func (c *EventConsumer) Close() {
 
 // handleGTIDEvent handles gtid event and update current replication position.
 func (c *EventConsumer) handleGTIDEvent(e *replication.GTIDEvent) (err error) {
+	if c.input.replicationMode == ReplicationModeFilepos {
+		return
+	}
+
 	// ensure last transaction been committed before starting a new one
 	if !c.committed {
 		if err = c.handleTxCommit(); err != nil {
@@ -374,8 +378,11 @@ func (c *EventConsumer) handleGTIDEvent(e *replication.GTIDEvent) (err error) {
 
 // handleTxCommit advances current gtidset by merge current gtid into it.
 func (c *EventConsumer) handleTxCommit() (err error) {
+	if c.input.replicationMode == ReplicationModeFilepos {
+		return
+	}
 	if c.committed {
-		return nil
+		return
 	}
 
 	gtid := fmt.Sprintf("%s:%d", c.currPos.ServerUUID, c.currPos.TransactionID)

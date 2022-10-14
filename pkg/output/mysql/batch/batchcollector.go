@@ -1,6 +1,6 @@
 package batch
 
-import (
+/*import (
 	"database/sql"
 	"fmt"
 	"git.garena.com/common/gommon/logger"
@@ -186,3 +186,4 @@ func getColumnValues(sql *core.SQLCommand, columnNames []string) []interface{} {
 	}
 	return result
 }
+*/
