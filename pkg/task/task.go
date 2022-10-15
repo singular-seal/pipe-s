@@ -2,12 +2,15 @@ package task
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/singular-seal/pipe-s/pkg/builder"
 	"github.com/singular-seal/pipe-s/pkg/core"
 	"github.com/singular-seal/pipe-s/pkg/log"
 	"github.com/singular-seal/pipe-s/pkg/statestore"
 	"github.com/singular-seal/pipe-s/pkg/utils"
 	"io/ioutil"
+	"net/http"
+	_ "net/http/pprof"
 	"path/filepath"
 	"sync"
 	"time"
@@ -18,6 +21,7 @@ const (
 	StateKey = "state"
 
 	DefaultSaveStateIntervalMS = 10000
+	DefaultPprofPort           = 7777
 )
 
 // Task is the runnable instance to do all ETL tasks.
@@ -101,6 +105,13 @@ func (t *DefaultTask) configure() (err error) {
 	return
 }
 
+func (t *DefaultTask) startPprof() {
+	go func() {
+		t.logger.Info("starting pprof", log.Int("port", DefaultPprofPort))
+		http.ListenAndServe(fmt.Sprintf(":%d", DefaultPprofPort), nil)
+	}()
+}
+
 // syncState load state from pipeline and save to state store periodically.
 func (t *DefaultTask) syncState() {
 	ticker := time.NewTicker(time.Duration(t.saveStateIntervalMS) * time.Millisecond)
@@ -156,6 +167,7 @@ func (t *DefaultTask) Start() (err error) {
 	defer t.logger.Sync()
 
 	t.logger.Info("initializing task")
+	t.startPprof()
 	builder.InitComponentBuilder(t.logger)
 
 	if err = t.configure(); err != nil {
