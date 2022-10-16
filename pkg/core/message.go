@@ -72,6 +72,7 @@ const (
 type MysqlBinlogPosition struct {
 	BinlogName        string // binlog filename
 	BinlogPos         uint32 // binlog position
+	TxBinlogPos       uint32 // last committed transaction binlog position
 	Timestamp         uint32 // binlog timestamp
 	ServerID          uint32 // mysql server_id
 	ServerUUID        string // server UUID
@@ -88,6 +89,7 @@ func (p *MysqlBinlogPosition) SimpleCopy() *MysqlBinlogPosition {
 	return &MysqlBinlogPosition{
 		BinlogName:        p.BinlogName,
 		BinlogPos:         p.BinlogPos,
+		TxBinlogPos:       p.TxBinlogPos,
 		Timestamp:         p.Timestamp,
 		ServerID:          p.ServerID,
 		ServerUUID:        p.ServerUUID,
