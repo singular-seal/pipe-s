@@ -142,6 +142,7 @@ func (p *DisruptorPipeline) StartPipeline() (err error) {
 	}
 	d := disruptor.New(
 		disruptor.WithCapacity(int64(p.config.BufferSize)),
+		disruptor.WithWriteBlockParkTime(100*time.Nanosecond),
 		disruptor.WithConsumerGroup(
 			processGroup...,
 		),

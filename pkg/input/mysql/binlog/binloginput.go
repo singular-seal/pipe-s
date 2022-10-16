@@ -161,6 +161,7 @@ func (in *MysqlBinlogInput) initSyncer() {
 		BufferSize:            DefaultRingBufferSize,
 		ParseConcurrency:      DefaultBinlogParseConcurrency,
 		SkipGTIDSetManagement: true,
+		WriteBlockParkTime:    100 * time.Nanosecond,
 	}
 
 	in.syncer = replication.NewDisruptorBinlogSyncer(config, in.eventConsumer)

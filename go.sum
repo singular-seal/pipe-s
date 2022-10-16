@@ -272,12 +272,12 @@ github.com/siddontang/go v0.0.0-20180604090527-bdc77568d726/go.mod h1:3yhqj7WBBf
 github.com/siddontang/go-log v0.0.0-20180807004314-8d05993dda07/go.mod h1:yFdBgwXP24JziuRl2NMUahT7nGLNOKi1SIiFxMttVD4=
 github.com/siddontang/go-log v0.0.0-20190221022429-1e957dd83bed h1:KMgQoLJGCq1IoZpLZE3AIffh9veYWoVlsvA4ib55TMM=
 github.com/siddontang/go-log v0.0.0-20190221022429-1e957dd83bed/go.mod h1:yFdBgwXP24JziuRl2NMUahT7nGLNOKi1SIiFxMttVD4=
-github.com/singular-seal/go-mysql v0.1.9 h1:Eq8jW4am4SU47keHZsNiS4Anfg1y+6lm3HCPoYohSHY=
-github.com/singular-seal/go-mysql v0.1.9/go.mod h1:vXYl83W5m3RWa+EBUeX8TV66wdOwhfSvIFewsen43fs=
+github.com/singular-seal/go-disruptor v0.0.1 h1:cCh5igck6EZpL2TfWbJbe8XCtcqiAAfZI96EFLojI5U=
+github.com/singular-seal/go-disruptor v0.0.1/go.mod h1:slFCjqF2v0VgmCeB+J4uEy0d7HAgLkgEjVrG0DPO67M=
+github.com/singular-seal/go-mysql v0.1.11 h1:D3yFi28bzL8bZnuwS46jQgi1Y4jodJJRhNfifd7JuCg=
+github.com/singular-seal/go-mysql v0.1.11/go.mod h1:cqFYVPDU7GvykTixJZgQSohrBi76p+2XHWWCoDuruvo=
 github.com/sirupsen/logrus v1.2.0 h1:juTguoYk5qI21pwyTXY3B3Y5cOTH3ZUyZCg1v/mihuo=
 github.com/sirupsen/logrus v1.2.0/go.mod h1:LxeOpSwHxABJmUn/MG1IvRgCAasNZTLOkJPxbbu5VWo=
-github.com/smartystreets-prototypes/go-disruptor v0.0.0-20200316140655-c96477fd7a6a h1:mHEYm/fBGwtGwgIW/tlprwUd2syvcue8oosLVuQscic=
-github.com/smartystreets-prototypes/go-disruptor v0.0.0-20200316140655-c96477fd7a6a/go.mod h1:slFCjqF2v0VgmCeB+J4uEy0d7HAgLkgEjVrG0DPO67M=
 github.com/smartystreets/assertions v0.0.0-20180927180507-b2de0cb4f26d h1:zE9ykElWQ6/NYmHa3jpm/yHnI4xSofP+UP6SpjHcSeM=
 github.com/smartystreets/assertions v0.0.0-20180927180507-b2de0cb4f26d/go.mod h1:OnSkiWE9lh6wB0YB77sQom3nweQdgAjqCqsofrRNTgc=
 github.com/smartystreets/goconvey v1.6.4 h1:fv0U8FUIMPNf1L9lnHLvLhgicrIVChEkdzIKYqbNC9s=

@@ -2,7 +2,8 @@ module github.com/singular-seal/pipe-s
 
 go 1.18
 
-replace github.com/go-mysql-org/go-mysql => github.com/singular-seal/go-mysql v0.1.9
+replace github.com/go-mysql-org/go-mysql => github.com/singular-seal/go-mysql v0.1.11
+replace github.com/smartystreets-prototypes/go-disruptor => github.com/singular-seal/go-disruptor v0.0.1
 
 require (
 	github.com/go-mysql-org/go-mysql v0.0.0-00010101000000-000000000000
@@ -12,7 +13,7 @@ require (
 	github.com/pingcap/parser v3.1.2+incompatible
 	github.com/pingcap/tidb v0.0.0-20190118125846-54b6de0880f0
 	github.com/siddontang/go-log v0.0.0-20190221022429-1e957dd83bed
-	github.com/smartystreets-prototypes/go-disruptor v0.0.0-20200316140655-c96477fd7a6a
+	github.com/smartystreets-prototypes/go-disruptor v0.0.0-00010101000000-000000000000
 	github.com/spf13/cobra v1.1.1
 	github.com/spf13/viper v1.7.1
 	github.com/yalp/jsonpath v0.0.0-20180802001716-5cc68e5049a0
