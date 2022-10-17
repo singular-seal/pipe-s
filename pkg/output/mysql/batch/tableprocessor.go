@@ -1,10 +1,10 @@
 package batch
 
-/*
 import (
 	"context"
 	"database/sql"
 	"github.com/singular-seal/pipe-s/pkg/core"
+	"github.com/singular-seal/pipe-s/pkg/log"
 	"sync"
 	"time"
 )
@@ -21,34 +21,25 @@ type TableProcessor struct {
 	messageCollection *MessageCollection
 	messages          chan *MessageInfo
 
-	lastDumpTime int64
-
-	flushSigChan chan bool // flushSigChan is signalled when flush batch size is reached
-
+	lastFlushTime   int64
 	toFlush         chan EventMap
 	batchCollectors map[string]*BatchCollector
-	keyColumns      []string
 	dbClient        *sql.DB
 	flushWait       *sync.WaitGroup // for insert, update and delete concurrency control
-
-	ctx context.Context // stop output context
+	stopWaitContext context.Context
+	logger          log.Logger
 }
 
-func NewTableProcessor(os *LongMysqlOutStream, index int) *TableProcessor {
+func NewTableProcessor(output *MysqlBatchOutput, index int) *TableProcessor {
 	proc := &TableProcessor{
 		index:             index,
-		output:            os,
+		output:            output,
 		messageCollection: NewMessageCollection(),
 		messages:          make(chan *MessageInfo),
-		flushSigChan:      make(chan bool),
 		toFlush:           make(chan EventMap),
 		batchCollectors:   make(map[string]*BatchCollector),
-		keyColumns:        os.config.KeyColumns,
-		dbClient:          os.dbClient,
+		dbClient:          output.conn,
 		flushWait:         &sync.WaitGroup{},
-
-		ctx:    os.ctx,
-		logger: os.logger,
 	}
 
 	proc.batchCollectors[core.MySQLCommandInsert] = NewBatchCollector(proc, core.MySQLCommandInsert)
@@ -59,38 +50,30 @@ func NewTableProcessor(os *LongMysqlOutStream, index int) *TableProcessor {
 }
 
 func (p *TableProcessor) Run() {
-	// listen incoming
-	go func() {
-		for msg := range p.messages {
-			p.messageCollection.addToBatch(msg.pk, msg.dbChange, msg.header)
-			if len(p.messageCollection.events) >= p.output.config.FlushBatchSize {
-				p.flushSigChan <- true
-			}
-		}
-	}()
-
-	// listen flush
-	// ensures the same pk will be processed in order
+	// flushing and collecting messages in different goroutines
 	go func() {
 		for toProcess := range p.toFlush {
-			p.ProcessFlush(toProcess)
+			p.flush(toProcess)
 		}
 	}()
 
-	p.lastDumpTime = time.Now().UnixNano() / 1e6
 	go func() {
+		p.lastFlushTime = time.Now().UnixNano() / 1e6
 		ticker := time.NewTicker(time.Millisecond * time.Duration(p.output.config.FlushIntervalMS))
 		for {
 			select {
-			case <-p.ctx.Done():
-				p.logger.Info("processor_terminated")
+			case <-p.stopWaitContext.Done():
+				p.logger.Info("table processor stopped")
 				return
 			case <-ticker.C:
-				if time.Now().UnixNano()/1e6-p.lastDumpTime > p.output.config.FlushIntervalMS {
-					p.Flush()
+				if time.Now().UnixNano()/1e6-p.lastFlushTime > p.output.config.FlushIntervalMS {
+					p.sendFlush()
 				}
-			case <-p.flushSigChan:
-				p.Flush()
+			case msg := <-p.messages:
+				p.messageCollection.addToBatch(msg.pk, msg.dbChange, msg.header)
+				if len(p.messageCollection.events) >= p.output.config.FlushBatchSize {
+					p.sendFlush()
+				}
 			}
 		}
 	}()
@@ -104,8 +87,8 @@ func (p *TableProcessor) Process(key []interface{}, dbEvent *core.DBChangeEvent,
 	}
 }
 
-func (p *TableProcessor) Flush() {
-	p.lastDumpTime = time.Now().UnixNano() / 1e6
+func (p *TableProcessor) sendFlush() {
+	p.lastFlushTime = time.Now().UnixNano() / 1e6
 	toProcess := p.messageCollection.getSnapshot()
 	if len(toProcess) == 0 {
 		return
@@ -113,7 +96,7 @@ func (p *TableProcessor) Flush() {
 	p.toFlush <- toProcess
 }
 
-func (p *TableProcessor) ProcessFlush(toProcess EventMap) {
+func (p *TableProcessor) flush(toProcess EventMap) {
 	//p.logger.WithField("batch_size", len(toProcess)).WithField("proc_index", p.index).Info("longmysqlosprocessor_flushing")
 	for pk, dataMessage := range toProcess {
 		if dataMessage.dbEvent.Command == core.MySQLCommandDelete && dataMessage.existsInDb == false {
@@ -147,8 +130,5 @@ func (p *TableProcessor) ProcessFlush(toProcess EventMap) {
 func (p *TableProcessor) helpAck(toAck []*core.MessageMeta, err error) {
 	for _, meta := range toAck {
 		p.output.UpStream.AckMessage(meta, err)
-		// gives a more stable qps to count only after it returned from db
-		metrics.Metrics.AddSentEvent("output")
 	}
 }
-*/
