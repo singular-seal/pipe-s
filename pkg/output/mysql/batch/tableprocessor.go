@@ -10,21 +10,21 @@ import (
 )
 
 type MessageInfo struct {
-	key      []interface{} // unique key of the message
+	key      [...]interface{} // unique key of the message
 	dbChange *core.DBChangeEvent
-	header   *core.MessageHeader
+	message  *core.Message
 }
 
 type TableProcessor struct {
-	index             int
-	output            *MysqlBatchOutput
-	messageCollection *MessageCollection
-	messages          chan *MessageInfo
+	index           int
+	output          *MysqlBatchOutput
+	collectingBatch *BatchMessage
+	messages        chan *MessageInfo
 
 	lastFlushTime   int64
-	toFlush         chan EventMap
+	toFlush         chan *BatchMessage
 	batchCollectors map[string]*BatchCollector
-	dbClient        *sql.DB
+	conn            *sql.DB
 	flushWait       *sync.WaitGroup // for insert, update and delete concurrency control
 	stopWaitContext context.Context
 	logger          log.Logger
@@ -32,20 +32,15 @@ type TableProcessor struct {
 
 func NewTableProcessor(output *MysqlBatchOutput, index int) *TableProcessor {
 	proc := &TableProcessor{
-		index:             index,
-		output:            output,
-		messageCollection: NewMessageCollection(),
-		messages:          make(chan *MessageInfo),
-		toFlush:           make(chan EventMap),
-		batchCollectors:   make(map[string]*BatchCollector),
-		dbClient:          output.conn,
-		flushWait:         &sync.WaitGroup{},
+		index:           index,
+		output:          output,
+		collectingBatch: NewBatchMessage(),
+		messages:        make(chan *MessageInfo),
+		toFlush:         make(chan *BatchMessage),
+		batchCollectors: make(map[string]*BatchCollector),
+		conn:            output.conn,
+		flushWait:       &sync.WaitGroup{},
 	}
-
-	proc.batchCollectors[core.MySQLCommandInsert] = NewBatchCollector(proc, core.MySQLCommandInsert)
-	proc.batchCollectors[core.MySQLCommandUpdate] = NewBatchCollector(proc, core.MySQLCommandUpdate)
-	proc.batchCollectors[core.MySQLCommandDelete] = NewBatchCollector(proc, core.MySQLCommandDelete)
-
 	return proc
 }
 
@@ -70,8 +65,8 @@ func (p *TableProcessor) Run() {
 					p.sendFlush()
 				}
 			case msg := <-p.messages:
-				p.messageCollection.addToBatch(msg.pk, msg.dbChange, msg.header)
-				if len(p.messageCollection.events) >= p.output.config.FlushBatchSize {
+				p.collectingBatch.add(msg)
+				if p.collectingBatch.size >= p.output.config.FlushBatchSize {
 					p.sendFlush()
 				}
 			}
@@ -79,56 +74,105 @@ func (p *TableProcessor) Run() {
 	}()
 }
 
-func (p *TableProcessor) Process(key []interface{}, dbEvent *core.DBChangeEvent, header *core.MessageHeader) {
+func (p *TableProcessor) Process(key [...]interface{}, dbEvent *core.DBChangeEvent, msg *core.Message) {
 	p.messages <- &MessageInfo{
 		key:      key,
 		dbChange: dbEvent,
-		header:   header,
+		message:  msg,
 	}
+}
+
+func (p *TableProcessor) executeBatch(messages []*MergedMessage) {
+	messages = p.filter(messages)
+	if len(messages) == 0 {
+		return
+	}
+	var current []*MergedMessage
+	for len(messages) > 0 {
+		if len(messages) > p.output.config.SqlBatchSize {
+			current = messages[:p.output.config.SqlBatchSize]
+			messages = messages[p.output.config.SqlBatchSize:]
+		} else {
+			current = messages
+			messages = []*MergedMessage{}
+		}
+		err := p.executeSome(current)
+		for _, each := range current {
+			p.ack(each.originals, err)
+		}
+	}
+	return
+}
+
+func (p *TableProcessor) executeSome(messages []*MergedMessage) error {
+	sqlString, sqlArgs := p.generateSql(messages)
+	result, err := p.conn.Exec(sqlString, sqlArgs...)
+	if err != nil {
+		p.logger.Error("failed execute sql", log.String("sql", sqlString), log.Error(err))
+		return err
+	}
+	real, err := result.RowsAffected()
+	// this can happen in retry so just log it
+	if real < int64(len(messages)) {
+		p.logger.Warn("not all rows succeed", log.String("sql", sqlString),
+			log.Int64("succeed", real), log.Int("all", len(messages)))
+	}
+	return err
+}
+
+func (p *TableProcessor) generateSql(messages []*MergedMessage) (sqlString string, sqlArgs []interface{}) {
+	return "", nil
+}
+
+func (p *TableProcessor) filter(messages []*MergedMessage) []*MergedMessage {
+	if len(messages) == 0 {
+		return messages
+	}
+	if messages[0].mergedEvent.Operation != core.DBDelete {
+		return messages
+	}
+	result := make([]*MergedMessage, 0)
+	for _, message := range messages {
+		if message.inDB {
+			result = append(result, message)
+		} else {
+			// this is a INSERT-%-DELETE sequence, need not execute it
+			p.ack(message.originals, nil)
+		}
+	}
+	return result
 }
 
 func (p *TableProcessor) sendFlush() {
 	p.lastFlushTime = time.Now().UnixNano() / 1e6
-	toProcess := p.messageCollection.getSnapshot()
-	if len(toProcess) == 0 {
+	snapshot := p.collectingBatch.snapshot()
+	if snapshot.size == 0 {
 		return
 	}
-	p.toFlush <- toProcess
+	p.toFlush <- snapshot
 }
 
-func (p *TableProcessor) flush(toProcess EventMap) {
-	//p.logger.WithField("batch_size", len(toProcess)).WithField("proc_index", p.index).Info("longmysqlosprocessor_flushing")
-	for pk, dataMessage := range toProcess {
-		if dataMessage.dbEvent.Command == core.MySQLCommandDelete && dataMessage.existsInDb == false {
-			// a sequence like INSERT-%-DELETE was encountered, need not execute it
-			p.helpAck(dataMessage.toAck, nil)
-			continue
+func (p *TableProcessor) flush(batchMessage *BatchMessage) {
+	batches := batchMessage.splitByOperation()
+
+	if p.output.config.ExecCRUDConcurrentlyInBatch {
+		for _, batch := range batches {
+			p.flushWait.Add(1)
+			go func() {
+				defer p.flushWait.Done()
+				p.executeBatch(batch)
+			}()
 		}
-
-		sqlCommand := &core.SQLCommand{}
-		utils.CopyDBEventToSQLCommand(dataMessage.dbEvent, sqlCommand, p.keyColumns)
-		p.batchCollectors[dataMessage.dbEvent.Command].AddMessage(pk, sqlCommand, dataMessage.toAck)
+		p.flushWait.Wait()
+	} else {
+		for _, batch := range batches {
+			p.executeBatch(batch)
+		}
 	}
-
-	ops := []string{
-		core.MySQLCommandDelete,
-		core.MySQLCommandInsert,
-		core.MySQLCommandUpdate,
-	}
-
-	for _, op := range ops {
-		p.flushWait.Add(1)
-		go func(o string) {
-			defer p.flushWait.Done()
-			p.batchCollectors[o].Flush()
-		}(op)
-	}
-	p.flushWait.Wait()
-
 }
 
-func (p *TableProcessor) helpAck(toAck []*core.MessageMeta, err error) {
-	for _, meta := range toAck {
-		p.output.UpStream.AckMessage(meta, err)
+func (p *TableProcessor) ack(msg []*core.Message, err error) {
+	for _, meta := range msg {
+		p.output.GetInput().Ack(meta, err)
 	}
 }

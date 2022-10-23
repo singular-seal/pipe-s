@@ -46,16 +46,5 @@ func main() {
 
 		time.Sleep(time.Second * 3600)
 	*/
-	/*	algorithm := fnv.New64a()
-		algorithm.Write([]byte("1"))
-		fmt.Println(algorithm.Sum64() % 4)
-		algorithm = fnv.New64a()
-		algorithm.Write([]byte("2"))
-		fmt.Println(algorithm.Sum64() % 4)
-		algorithm = fnv.New64a()
-		algorithm.Write([]byte("3"))
-		fmt.Println(algorithm.Sum64() % 4)
-		algorithm = fnv.New64a()
-		algorithm.Write([]byte("4"))
-		fmt.Println(algorithm.Sum64() % 4)*/
+
 }
