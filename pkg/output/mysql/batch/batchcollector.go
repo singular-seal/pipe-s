@@ -122,7 +122,7 @@ func generateSqlInsert(batch batchOfData) (sqlCmd string, sqlArgs []interface{})
 	batchArgs := make([]interface{}, 0)
 
 	for _, data := range batch {
-		for _, arg := range getColumnValues(data.sqlCommand, columns) {
+		for _, arg := range columnValues(data.sqlCommand, columns) {
 			batchArgs = append(batchArgs, arg)
 		}
 		placeHolders := make([]string, 0)
@@ -163,7 +163,7 @@ func generateSqlDelete(batch batchOfData) (sqlCmd string, sqlArgs []interface{})
 	batchArgs := make([]interface{}, 0)
 
 	for _, data := range batch {
-		for _, arg := range getColumnValues(data.sqlCommand, keyColumns) {
+		for _, arg := range columnValues(data.sqlCommand, keyColumns) {
 			batchArgs = append(batchArgs, arg)
 		}
 		placeHolders := make([]string, 0)
@@ -177,12 +177,4 @@ func generateSqlDelete(batch batchOfData) (sqlCmd string, sqlArgs []interface{})
 	finalPlaceHolders := fmt.Sprintf("( %s )", strings.Join(batchPlaceHolders, ","))
 	s := []string{sqlPrefix, finalPlaceHolders}
 	return strings.Join(s, " "), batchArgs
-}
-
-func getColumnValues(sql *core.SQLCommand, columnNames []string) []interface{} {
-	result := make([]interface{}, 0)
-	for _, column := range columnNames {
-		result = append(result, sql.Columns[column])
-	}
-	return result
 }

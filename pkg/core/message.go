@@ -44,6 +44,14 @@ func (m *Message) GetTableSchema() (*Table, bool) {
 	return ts, ok
 }
 
+func (m *Message) ColumnNames() []string {
+	ts, ok := m.GetTableSchema()
+	if !ok {
+		return nil
+	}
+	return ts.ColumnNames()
+}
+
 func NewMessage(typeName string) *Message {
 	return &Message{
 		Header: &MessageHeader{
@@ -144,4 +152,11 @@ type DBChangeEvent struct {
 	OldRow    map[string]interface{} // DB row values before change
 	NewRow    map[string]interface{} // DB row values after change
 	ExtraInfo map[string]interface{} // can put everything else here
+}
+
+func (e *DBChangeEvent) GetRow() map[string]interface{} {
+	if e.Operation == DBDelete {
+		return e.OldRow
+	}
+	return e.NewRow
 }

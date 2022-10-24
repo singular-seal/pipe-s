@@ -143,3 +143,12 @@ func ExtractFromDDL(schema []byte, stmt ast.StmtNode) []*DDLInfo {
 	}
 	return result
 }
+
+// QuoteColumns add quotes to column names
+func QuoteColumns(cols []string) []string {
+	result := make([]string, len(cols))
+	for i, col := range cols {
+		result[i] = fmt.Sprintf("`%s`", col)
+	}
+	return result
+}

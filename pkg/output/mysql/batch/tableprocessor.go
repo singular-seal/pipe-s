@@ -3,8 +3,11 @@ package batch
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"github.com/singular-seal/pipe-s/pkg/core"
 	"github.com/singular-seal/pipe-s/pkg/log"
+	"github.com/singular-seal/pipe-s/pkg/utils"
+	"strings"
 	"sync"
 	"time"
 )
@@ -106,6 +109,9 @@ func (p *TableProcessor) executeBatch(messages []*MergedMessage) {
 
 func (p *TableProcessor) executeSome(messages []*MergedMessage) error {
 	sqlString, sqlArgs := p.generateSql(messages)
+	if len(sqlString) == 0 {
+		return fmt.Errorf("blank sql")
+	}
 	result, err := p.conn.Exec(sqlString, sqlArgs...)
 	if err != nil {
 		p.logger.Error("failed execute sql", log.String("sql", sqlString), log.Error(err))
@@ -121,6 +127,59 @@ func (p *TableProcessor) executeSome(messages []*MergedMessage) error {
 }
 
 func (p *TableProcessor) generateSql(messages []*MergedMessage) (sqlString string, sqlArgs []interface{}) {
+	switch messages[0].mergedEvent.Operation {
+	case core.DBInsert:
+		return p.generateInsertSql(messages)
+	case core.DBUpdate:
+		return p.generateUpdateSql(messages)
+	case core.DBDelete:
+		return p.generateDeleteSql(messages)
+	case core.DBReplace:
+		return p.generateReplaceSql(messages)
+	}
+	return "", nil
+}
+
+func columnValues(event *core.DBChangeEvent, columns []string) []interface{} {
+	result := make([]interface{}, 0)
+	for _, column := range columns {
+		result = append(result, event.GetRow()[column])
+	}
+	return result
+}
+
+func (p *TableProcessor) generateInsertSql(messages []*MergedMessage) (sqlString string, sqlArgs []interface{}) {
+	msg0 := messages[0]
+	columns := msg0.originals[0].ColumnNames()
+	sqlPrefix := fmt.Sprintf("insert ignore into `%s`.`%s` (%s) values", msg0.mergedEvent.Database,
+		msg0.mergedEvent.Table, strings.Join(utils.QuoteColumns(columns), ","))
+	allPlaceHolders := make([]string, 0)
+	allArgs := make([]interface{}, 0)
+
+	for _, message := range messages {
+		for _, val := range columnValues(message.mergedEvent, columns) {
+			allArgs = append(allArgs, val)
+		}
+		phs := make([]string, 0)
+		for i := 0; i < len(columns); i++ {
+			phs = append(phs, "?")
+		}
+		rph := fmt.Sprintf("(%s)", strings.Join(phs, ","))
+		allPlaceHolders = append(allPlaceHolders, rph)
+	}
+
+	placeHolderString := strings.Join(allPlaceHolders, ",")
+	s := []string{sqlPrefix, placeHolderString}
+	return strings.Join(s, " "), allArgs
+}
+
+func (p *TableProcessor) generateUpdateSql(messages []*MergedMessage) (sqlString string, sqlArgs []interface{}) {
+	return "", nil
+}
+func (p *TableProcessor) generateDeleteSql(messages []*MergedMessage) (sqlString string, sqlArgs []interface{}) {
+	return "", nil
+}
+func (p *TableProcessor) generateReplaceSql(messages []*MergedMessage) (sqlString string, sqlArgs []interface{}) {
 	return "", nil
 }
 
