@@ -129,13 +129,13 @@ func (p *TableProcessor) executeSome(messages []*MergedMessage) error {
 func (p *TableProcessor) generateSql(messages []*MergedMessage) (sqlString string, sqlArgs []interface{}) {
 	switch messages[0].mergedEvent.Operation {
 	case core.DBInsert:
-		return p.generateInsertSql(messages)
+		return p.generateInsertOrReplaceSql(messages)
 	case core.DBUpdate:
 		return p.generateUpdateSql(messages)
 	case core.DBDelete:
 		return p.generateDeleteSql(messages)
 	case core.DBReplace:
-		return p.generateReplaceSql(messages)
+		return p.generateInsertOrReplaceSql(messages)
 	}
 	return "", nil
 }
@@ -148,11 +148,17 @@ func columnValues(event *core.DBChangeEvent, columns []string) []interface{} {
 	return result
 }
 
-func (p *TableProcessor) generateInsertSql(messages []*MergedMessage) (sqlString string, sqlArgs []interface{}) {
+func (p *TableProcessor) generateInsertOrReplaceSql(messages []*MergedMessage) (sqlString string, sqlArgs []interface{}) {
 	msg0 := messages[0]
 	columns := msg0.originals[0].ColumnNames()
-	sqlPrefix := fmt.Sprintf("insert ignore into `%s`.`%s` (%s) values", msg0.mergedEvent.Database,
-		msg0.mergedEvent.Table, strings.Join(utils.QuoteColumns(columns), ","))
+	var sqlPrefix string
+	if msg0.mergedEvent.Operation == core.DBReplace {
+		sqlPrefix = fmt.Sprintf("replace into %s.%s (%s) values", msg0.mergedEvent.Database,
+			msg0.mergedEvent.Table, strings.Join(utils.QuoteColumns(columns), ","))
+	} else {
+		sqlPrefix = fmt.Sprintf("insert ignore into %s.%s (%s) values", msg0.mergedEvent.Database,
+			msg0.mergedEvent.Table, strings.Join(utils.QuoteColumns(columns), ","))
+	}
 	allPlaceHolders := make([]string, 0)
 	allArgs := make([]interface{}, 0)
 
@@ -176,11 +182,31 @@ func (p *TableProcessor) generateInsertSql(messages []*MergedMessage) (sqlString
 func (p *TableProcessor) generateUpdateSql(messages []*MergedMessage) (sqlString string, sqlArgs []interface{}) {
 	return "", nil
 }
+
 func (p *TableProcessor) generateDeleteSql(messages []*MergedMessage) (sqlString string, sqlArgs []interface{}) {
-	return "", nil
+	sqlString = fmt.Sprintf("delete from %s.%s where %s", messages[0].mergedEvent.Database,
+		messages[0].mergedEvent.Table, genPKColumnsIn(messages))
+	ts, _ := messages[0].originals[0].GetTableSchema()
+	for _, column := range ts.PKColumns {
+		for _, message := range messages {
+			sqlArgs = append(sqlArgs, message.mergedEvent.OldRow[column.Name])
+		}
+	}
+	return
 }
-func (p *TableProcessor) generateReplaceSql(messages []*MergedMessage) (sqlString string, sqlArgs []interface{}) {
-	return "", nil
+
+func genPKColumnsIn(messages []*MergedMessage) string {
+	ts, _ := messages[0].originals[0].GetTableSchema()
+	conditions := make([]string, 0)
+	for _, column := range ts.PKColumns {
+		phs := make([]string, len(messages))
+		for i, _ := range phs {
+			phs[i] = "?"
+		}
+		condition := fmt.Sprintf("%s in (%s)", column.Name, strings.Join(phs, ","))
+		conditions = append(conditions, condition)
+	}
+	return strings.Join(conditions, " and ")
 }
 
 func (p *TableProcessor) filter(messages []*MergedMessage) []*MergedMessage {
