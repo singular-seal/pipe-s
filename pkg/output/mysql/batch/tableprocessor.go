@@ -27,7 +27,7 @@ type TableProcessor struct {
 	collectingBatch *BatchMessage
 	inChan          chan *MessageInfo
 
-	lastFlushTime int64
+	lastFlushTime time.Time
 	flushChan     chan *BatchMessage
 	conn          *sql.DB
 	flushWait     *sync.WaitGroup // for insert, update and delete concurrency control
@@ -64,15 +64,15 @@ func (p *TableProcessor) Run() {
 	}()
 
 	go func() {
-		p.lastFlushTime = time.Now().UnixNano() / 1e6
-		ticker := time.NewTicker(time.Millisecond * time.Duration(p.output.config.FlushIntervalMS))
+		p.lastFlushTime = time.Now()
+		ticker := time.NewTicker(time.Millisecond * time.Duration(p.output.config.FlushIntervalMS/10))
 		for {
 			select {
 			case <-p.stopContext.Done():
 				p.logger.Info("message processing goroutine exited")
 				return
 			case <-ticker.C:
-				if time.Now().UnixNano()/1e6-p.lastFlushTime > p.output.config.FlushIntervalMS {
+				if time.Since(p.lastFlushTime).Milliseconds() > p.output.config.FlushIntervalMS {
 					p.sendFlush()
 				}
 			case msg := <-p.inChan:
@@ -262,7 +262,7 @@ func (p *TableProcessor) filter(messages []*MergedMessage) []*MergedMessage {
 }
 
 func (p *TableProcessor) sendFlush() {
-	p.lastFlushTime = time.Now().UnixNano() / 1e6
+	p.lastFlushTime = time.Now()
 	snapshot := p.collectingBatch.snapshot()
 	if snapshot.size == 0 {
 		return
@@ -289,8 +289,8 @@ func (p *TableProcessor) flush(batchMessage *BatchMessage) {
 	}
 }
 
-func (p *TableProcessor) ack(msg []*core.Message, err error) {
-	for _, meta := range msg {
-		p.output.GetInput().Ack(meta, err)
+func (p *TableProcessor) ack(messages []*core.Message, err error) {
+	for _, message := range messages {
+		p.output.GetInput().Ack(message, err)
 	}
 }

@@ -42,9 +42,9 @@ func (bm *BatchMessage) add(info *MessageInfo) (err error) {
 	defer bm.lock.Unlock()
 
 	bm.size++
-	oldMessage, ok := bm.mergedMessages[info.key]
+	oldMessage, ok := bm.mergedMessages[*info.key]
 	if !ok {
-		bm.mergedMessages[info.key] = &MergedMessage{
+		bm.mergedMessages[*info.key] = &MergedMessage{
 			mergedEvent: info.dbChange,
 			originals:   []*core.Message{info.message},
 			// if new event is insert then the pk shouldn't be in db before this event
