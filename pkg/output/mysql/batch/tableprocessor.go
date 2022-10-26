@@ -13,7 +13,7 @@ import (
 )
 
 type MessageInfo struct {
-	key      [...]interface{} // unique key of the message
+	key      [DefaultMaxComboKeyColumns]interface{} // unique key of the message
 	dbChange *core.DBChangeEvent
 	message  *core.Message
 }
@@ -26,7 +26,6 @@ type TableProcessor struct {
 
 	lastFlushTime   int64
 	toFlush         chan *BatchMessage
-	batchCollectors map[string]*BatchCollector
 	conn            *sql.DB
 	flushWait       *sync.WaitGroup // for insert, update and delete concurrency control
 	stopWaitContext context.Context
@@ -40,7 +39,6 @@ func NewTableProcessor(output *MysqlBatchOutput, index int) *TableProcessor {
 		collectingBatch: NewBatchMessage(),
 		messages:        make(chan *MessageInfo),
 		toFlush:         make(chan *BatchMessage),
-		batchCollectors: make(map[string]*BatchCollector),
 		conn:            output.conn,
 		flushWait:       &sync.WaitGroup{},
 	}
@@ -68,7 +66,11 @@ func (p *TableProcessor) Run() {
 					p.sendFlush()
 				}
 			case msg := <-p.messages:
-				p.collectingBatch.add(msg)
+				if err := p.collectingBatch.add(msg); err != nil {
+					p.logger.Error("wrong message sequence found", log.Error(err))
+					p.ack([]*core.Message{msg.message}, err)
+					return
+				}
 				if p.collectingBatch.size >= p.output.config.FlushBatchSize {
 					p.sendFlush()
 				}
@@ -77,7 +79,7 @@ func (p *TableProcessor) Run() {
 	}()
 }
 
-func (p *TableProcessor) Process(key [...]interface{}, dbEvent *core.DBChangeEvent, msg *core.Message) {
+func (p *TableProcessor) Process(key [DefaultMaxComboKeyColumns]interface{}, dbEvent *core.DBChangeEvent, msg *core.Message) {
 	p.messages <- &MessageInfo{
 		key:      key,
 		dbChange: dbEvent,
@@ -117,11 +119,11 @@ func (p *TableProcessor) executeSome(messages []*MergedMessage) error {
 		p.logger.Error("failed execute sql", log.String("sql", sqlString), log.Error(err))
 		return err
 	}
-	real, err := result.RowsAffected()
+	count, err := result.RowsAffected()
 	// this can happen in retry so just log it
-	if real < int64(len(messages)) {
+	if count < int64(len(messages)) {
 		p.logger.Warn("not all rows succeed", log.String("sql", sqlString),
-			log.Int64("succeed", real), log.Int("all", len(messages)))
+			log.Int64("succeed", count), log.Int("all", len(messages)))
 	}
 	return err
 }
@@ -180,7 +182,20 @@ func (p *TableProcessor) generateInsertOrReplaceSql(messages []*MergedMessage) (
 }
 
 func (p *TableProcessor) generateUpdateSql(messages []*MergedMessage) (sqlString string, sqlArgs []interface{}) {
-	return "", nil
+	var batchSql []string
+	ts, _ := messages[0].originals[0].GetTableSchema()
+	keyColumns := make([]string, len(ts.PKColumns))
+	for i, column := range ts.PKColumns {
+		keyColumns[i] = column.Name
+	}
+
+	for _, message := range messages {
+		s, as := utils.GenerateSqlAndArgs(message.mergedEvent, keyColumns)
+		batchSql = append(batchSql, s)
+		sqlArgs = append(sqlArgs, as...)
+	}
+	sqlString = strings.Join(batchSql, ";")
+	return
 }
 
 func (p *TableProcessor) generateDeleteSql(messages []*MergedMessage) (sqlString string, sqlArgs []interface{}) {
@@ -200,7 +215,7 @@ func genPKColumnsIn(messages []*MergedMessage) string {
 	conditions := make([]string, 0)
 	for _, column := range ts.PKColumns {
 		phs := make([]string, len(messages))
-		for i, _ := range phs {
+		for i := range phs {
 			phs[i] = "?"
 		}
 		condition := fmt.Sprintf("%s in (%s)", column.Name, strings.Join(phs, ","))
@@ -241,17 +256,17 @@ func (p *TableProcessor) flush(batchMessage *BatchMessage) {
 	batches := batchMessage.splitByOperation()
 
 	if p.output.config.ExecCRUDConcurrentlyInBatch {
-		for _, batch := range batches {
+		for _, each := range batches {
 			p.flushWait.Add(1)
-			go func() {
+			go func(batch []*MergedMessage) {
 				defer p.flushWait.Done()
 				p.executeBatch(batch)
-			}()
+			}(each)
 		}
 		p.flushWait.Wait()
 	} else {
-		for _, batch := range batches {
-			p.executeBatch(batch)
+		for _, each := range batches {
+			p.executeBatch(each)
 		}
 	}
 }

@@ -6,7 +6,9 @@ import (
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/pingcap/parser/ast"
+	"github.com/singular-seal/pipe-s/pkg/core"
 	"math/rand"
+	"strings"
 	"time"
 )
 
@@ -151,4 +153,71 @@ func QuoteColumns(cols []string) []string {
 		result[i] = fmt.Sprintf("`%s`", col)
 	}
 	return result
+}
+
+func genKeyValueSqlAndArgs(columns map[string]interface{}, separator string) (string, []interface{}) {
+	args := make([]interface{}, 0)
+	conditions := make([]string, 0)
+	for k, v := range columns {
+		args = append(args, v)
+		conditions = append(conditions, fmt.Sprintf("`%s`=?", k))
+	}
+	return strings.Join(conditions, separator), args
+}
+
+func genKeyValueSqlAndArgsExclude(columns map[string]interface{}, exclude map[string]interface{},
+	separator string) (string, []interface{}) {
+	args := make([]interface{}, 0)
+	conditions := make([]string, 0)
+	for k, v := range columns {
+		if _, ok := exclude[k]; ok {
+			continue
+		}
+		args = append(args, v)
+		conditions = append(conditions, fmt.Sprintf("`%s`=?", k))
+	}
+	return strings.Join(conditions, separator), args
+}
+
+func genColumnsStringAndArgs(columns map[string]interface{}) (string, string, []interface{}) {
+	args := make([]interface{}, 0)
+	cols := make([]string, 0)
+	marks := make([]string, 0)
+	for k, v := range columns {
+		args = append(args, v)
+		cols = append(cols, k)
+		marks = append(marks, "?")
+	}
+	return strings.Join(QuoteColumns(cols), ","), strings.Join(marks, ","), args
+}
+
+func getKeys(eventData map[string]interface{}, keyColumns []string) map[string]interface{} {
+	result := make(map[string]interface{})
+	for _, column := range keyColumns {
+		result[column] = eventData[column]
+	}
+	return result
+}
+
+func GenerateSqlAndArgs(event *core.DBChangeEvent, keyColumns []string) (sqlString string, sqlArgs []interface{}) {
+	switch event.Operation {
+	case core.DBInsert:
+		colString, markString, args := genColumnsStringAndArgs(event.NewRow)
+		sqlString = fmt.Sprintf("insert ignore into %s.%s (%s) values (%s)", event.Database,
+			event.Table, colString, markString)
+		sqlArgs = args
+	case core.DBUpdate:
+		keys := getKeys(event.NewRow, keyColumns)
+		setString, setArgs := genKeyValueSqlAndArgsExclude(event.NewRow, keys, ",")
+		condString, condArgs := genKeyValueSqlAndArgs(keys, " and ")
+		sqlString = fmt.Sprintf("update %s.%s set %s where %s", event.Database, event.Table, setString, condString)
+		sqlArgs = append(setArgs, condArgs...)
+	case core.DBDelete:
+		keys := getKeys(event.OldRow, keyColumns)
+		condString, args := genKeyValueSqlAndArgs(keys, " and ")
+		sqlString = fmt.Sprintf("delete from %s.%s where %s", event.Database, event.Table, condString)
+		sqlArgs = args
+	default:
+	}
+	return
 }
