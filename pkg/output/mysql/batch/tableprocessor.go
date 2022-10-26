@@ -12,8 +12,11 @@ import (
 	"time"
 )
 
+const DefaultInChanSize = 100
+const DefaultFlushChanSize = 20
+
 type MessageInfo struct {
-	key      [DefaultMaxComboKeyColumns]interface{} // unique key of the message
+	key      *[DefaultMaxComboKeyColumns]interface{} // unique key of the message
 	dbChange *core.DBChangeEvent
 	message  *core.Message
 }
@@ -22,14 +25,14 @@ type TableProcessor struct {
 	index           int
 	output          *MysqlBatchOutput
 	collectingBatch *BatchMessage
-	messages        chan *MessageInfo
+	inChan          chan *MessageInfo
 
-	lastFlushTime   int64
-	toFlush         chan *BatchMessage
-	conn            *sql.DB
-	flushWait       *sync.WaitGroup // for insert, update and delete concurrency control
-	stopWaitContext context.Context
-	logger          log.Logger
+	lastFlushTime int64
+	flushChan     chan *BatchMessage
+	conn          *sql.DB
+	flushWait     *sync.WaitGroup // for insert, update and delete concurrency control
+	stopContext   context.Context
+	logger        *log.Logger
 }
 
 func NewTableProcessor(output *MysqlBatchOutput, index int) *TableProcessor {
@@ -37,10 +40,11 @@ func NewTableProcessor(output *MysqlBatchOutput, index int) *TableProcessor {
 		index:           index,
 		output:          output,
 		collectingBatch: NewBatchMessage(),
-		messages:        make(chan *MessageInfo),
-		toFlush:         make(chan *BatchMessage),
+		inChan:          make(chan *MessageInfo, DefaultInChanSize),
+		flushChan:       make(chan *BatchMessage, DefaultFlushChanSize),
 		conn:            output.conn,
 		flushWait:       &sync.WaitGroup{},
+		logger:          output.GetLogger(),
 	}
 	return proc
 }
@@ -48,8 +52,14 @@ func NewTableProcessor(output *MysqlBatchOutput, index int) *TableProcessor {
 func (p *TableProcessor) Run() {
 	// flushing and collecting messages in different goroutines
 	go func() {
-		for toProcess := range p.toFlush {
-			p.flush(toProcess)
+		for {
+			select {
+			case <-p.stopContext.Done():
+				p.logger.Info("flush goroutine exited")
+				return
+			case batch := <-p.flushChan:
+				p.flush(batch)
+			}
 		}
 	}()
 
@@ -58,14 +68,14 @@ func (p *TableProcessor) Run() {
 		ticker := time.NewTicker(time.Millisecond * time.Duration(p.output.config.FlushIntervalMS))
 		for {
 			select {
-			case <-p.stopWaitContext.Done():
-				p.logger.Info("table processor stopped")
+			case <-p.stopContext.Done():
+				p.logger.Info("message processing goroutine exited")
 				return
 			case <-ticker.C:
 				if time.Now().UnixNano()/1e6-p.lastFlushTime > p.output.config.FlushIntervalMS {
 					p.sendFlush()
 				}
-			case msg := <-p.messages:
+			case msg := <-p.inChan:
 				if err := p.collectingBatch.add(msg); err != nil {
 					p.logger.Error("wrong message sequence found", log.Error(err))
 					p.ack([]*core.Message{msg.message}, err)
@@ -79,9 +89,17 @@ func (p *TableProcessor) Run() {
 	}()
 }
 
-func (p *TableProcessor) Process(key [DefaultMaxComboKeyColumns]interface{}, dbEvent *core.DBChangeEvent, msg *core.Message) {
-	p.messages <- &MessageInfo{
-		key:      key,
+func copyKey(key []interface{}) *[DefaultMaxComboKeyColumns]interface{} {
+	var result [DefaultMaxComboKeyColumns]interface{}
+	for i, each := range key {
+		result[i] = each
+	}
+	return &result
+}
+
+func (p *TableProcessor) Process(key []interface{}, dbEvent *core.DBChangeEvent, msg *core.Message) {
+	p.inChan <- &MessageInfo{
+		key:      copyKey(key),
 		dbChange: dbEvent,
 		message:  msg,
 	}
@@ -249,7 +267,7 @@ func (p *TableProcessor) sendFlush() {
 	if snapshot.size == 0 {
 		return
 	}
-	p.toFlush <- snapshot
+	p.flushChan <- snapshot
 }
 
 func (p *TableProcessor) flush(batchMessage *BatchMessage) {

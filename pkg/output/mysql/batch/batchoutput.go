@@ -12,9 +12,9 @@ import (
 
 const (
 	DefaultMaxIdleConnections = 1000
-	DefaultConcurrency        = 1
-	DefaultFlushIntervalMS    = 1000
-	DefaultFlushBatchSize     = 30000
+	DefaultConcurrency        = 4
+	DefaultFlushIntervalMS    = 100
+	DefaultFlushBatchSize     = 3000
 	DefaultSqlBatchSize       = 1000
 	DefaultMaxComboKeyColumns = 5
 )
@@ -37,10 +37,9 @@ type MysqlBatchOutputConfig struct {
 	Password       string
 	MaxConnections int
 
-	TableConcurrency   int // processor count for each table
-	FlushIntervalMS    int64
-	FlushBatchSize     int
-	HasComboPrimaryKey bool
+	TableConcurrency int // processor count for each table
+	FlushIntervalMS  int64
+	FlushBatchSize   int
 	// if exec insert, update, delete and replace micro batches concurrently, will cost more db connections
 	ExecCRUDConcurrentlyInBatch bool
 	// max sql statements sent in one api call, restricted by column counts and mysql server side restriction
@@ -112,6 +111,10 @@ func (o *MysqlBatchOutput) Process(m *core.Message) {
 	}
 	// TODO: can support more generic unique key in future
 	pk := getPKValue(dbChange, ts)
+	if len(pk) > DefaultMaxComboKeyColumns {
+		o.GetInput().Ack(m, fmt.Errorf("don't support pk columns more than %d", DefaultMaxComboKeyColumns))
+		return
+	}
 	// get processors for current table
 	processors := o.getTableProcessors(dbChange)
 	// index number in table processors
@@ -119,7 +122,7 @@ func (o *MysqlBatchOutput) Process(m *core.Message) {
 	processors[index].Process(pk, dbChange, m)
 }
 
-func getPKValue(event *core.DBChangeEvent, ts *core.Table) [...]interface{} {
+func getPKValue(event *core.DBChangeEvent, ts *core.Table) []interface{} {
 	result := make([]interface{}, len(ts.PKColumns))
 	for i := 0; i < len(ts.PKColumns); i++ {
 		if event.Operation == core.DBDelete {
@@ -128,8 +131,7 @@ func getPKValue(event *core.DBChangeEvent, ts *core.Table) [...]interface{} {
 			result[i] = event.NewRow[ts.PKColumns[i].Name]
 		}
 	}
-	return *(*[...]interface{})(result)
-	//return result
+	return result
 }
 
 func (o *MysqlBatchOutput) getTableProcessors(event *core.DBChangeEvent) []*TableProcessor {
@@ -149,7 +151,7 @@ func (o *MysqlBatchOutput) getTableProcessors(event *core.DBChangeEvent) []*Tabl
 	return processors
 }
 
-func (o *MysqlBatchOutput) getProcessorIndex(key [...]interface{}) int {
+func (o *MysqlBatchOutput) getProcessorIndex(key []interface{}) int {
 	if o.config.TableConcurrency < 2 {
 		return 0
 	}
@@ -163,7 +165,7 @@ func (o *MysqlBatchOutput) getProcessorIndex(key [...]interface{}) int {
 	return index
 }
 
-func calcHash(pk [...]interface{}) int {
+func calcHash(pk []interface{}) int {
 	if len(pk) == 0 {
 		return 0
 	}
