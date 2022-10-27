@@ -3,7 +3,6 @@ package batch
 import (
 	"fmt"
 	"github.com/singular-seal/pipe-s/pkg/core"
-	"sync"
 )
 
 type MergedMessage struct {
@@ -13,22 +12,17 @@ type MergedMessage struct {
 }
 
 type BatchMessage struct {
-	lock           *sync.Mutex
 	size           int
 	mergedMessages map[interface{}]*MergedMessage
 }
 
 func NewBatchMessage() *BatchMessage {
 	return &BatchMessage{
-		lock:           &sync.Mutex{},
 		mergedMessages: map[interface{}]*MergedMessage{},
 	}
 }
 
-func (bm *BatchMessage) snapshot() *BatchMessage {
-	bm.lock.Lock()
-	defer bm.lock.Unlock()
-
+func (bm *BatchMessage) dump() *BatchMessage {
 	m := NewBatchMessage()
 	m.mergedMessages = bm.mergedMessages
 	m.size = bm.size
@@ -38,9 +32,6 @@ func (bm *BatchMessage) snapshot() *BatchMessage {
 }
 
 func (bm *BatchMessage) add(info *MessageInfo) (err error) {
-	bm.lock.Lock()
-	defer bm.lock.Unlock()
-
 	bm.size++
 	oldMessage, ok := bm.mergedMessages[*info.key]
 	if !ok {

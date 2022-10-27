@@ -30,7 +30,7 @@ type TableProcessor struct {
 	lastFlushTime time.Time
 	flushChan     chan *BatchMessage
 	conn          *sql.DB
-	flushWait     *sync.WaitGroup // for insert, update and delete concurrency control
+	flushWait     *sync.WaitGroup // concurrency control for insert, update and delete in the same batch
 	stopContext   context.Context
 	logger        *log.Logger
 }
@@ -65,7 +65,7 @@ func (p *TableProcessor) Run() {
 
 	go func() {
 		p.lastFlushTime = time.Now()
-		ticker := time.NewTicker(time.Millisecond * time.Duration(p.output.config.FlushIntervalMS/10))
+		ticker := time.NewTicker(time.Millisecond * time.Duration(p.output.config.FlushIntervalMS/10+1))
 		for {
 			select {
 			case <-p.stopContext.Done():
@@ -263,7 +263,8 @@ func (p *TableProcessor) filter(messages []*MergedMessage) []*MergedMessage {
 
 func (p *TableProcessor) sendFlush() {
 	p.lastFlushTime = time.Now()
-	snapshot := p.collectingBatch.snapshot()
+	// todo don't need strange logic like dump replace to new
+	snapshot := p.collectingBatch.dump()
 	if snapshot.size == 0 {
 		return
 	}

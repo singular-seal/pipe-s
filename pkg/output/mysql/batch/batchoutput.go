@@ -12,7 +12,7 @@ import (
 
 const (
 	DefaultMaxIdleConnections = 1000
-	DefaultConcurrency        = 4
+	DefaultTableConcurrency   = 1
 	DefaultFlushIntervalMS    = 100
 	DefaultFlushBatchSize     = 3000
 	DefaultSqlBatchSize       = 1000
@@ -40,6 +40,8 @@ type MysqlBatchOutputConfig struct {
 	TableConcurrency int // processor count for each table
 	FlushIntervalMS  int64
 	FlushBatchSize   int
+
+	InsertOnly bool // for database copy scenario
 	// if exec insert, update, delete and replace micro batches concurrently, will cost more db connections
 	ExecCRUDConcurrentlyInBatch bool
 	// max sql statements sent in one api call, restricted by column counts and mysql server side restriction
@@ -85,7 +87,7 @@ func (o *MysqlBatchOutput) Configure(config core.StringMap) (err error) {
 		o.config.MaxConnections = DefaultMaxIdleConnections
 	}
 	if o.config.TableConcurrency == 0 {
-		o.config.TableConcurrency = DefaultConcurrency
+		o.config.TableConcurrency = DefaultTableConcurrency
 	}
 
 	if o.config.FlushIntervalMS == 0 {
