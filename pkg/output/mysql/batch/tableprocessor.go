@@ -263,12 +263,12 @@ func (p *TableProcessor) filter(messages []*MergedMessage) []*MergedMessage {
 
 func (p *TableProcessor) sendFlush() {
 	p.lastFlushTime = time.Now()
-	// todo don't need strange logic like dump replace to new
-	snapshot := p.collectingBatch.dump()
-	if snapshot.size == 0 {
+	if p.collectingBatch.size == 0 {
 		return
 	}
-	p.flushChan <- snapshot
+	old := p.collectingBatch
+	p.collectingBatch = NewBatchMessage()
+	p.flushChan <- old
 }
 
 func (p *TableProcessor) flush(batchMessage *BatchMessage) {

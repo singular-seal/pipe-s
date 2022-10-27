@@ -22,15 +22,6 @@ func NewBatchMessage() *BatchMessage {
 	}
 }
 
-func (bm *BatchMessage) dump() *BatchMessage {
-	m := NewBatchMessage()
-	m.mergedMessages = bm.mergedMessages
-	m.size = bm.size
-	bm.mergedMessages = map[interface{}]*MergedMessage{}
-	bm.size = 0
-	return m
-}
-
 func (bm *BatchMessage) add(info *MessageInfo) (err error) {
 	bm.size++
 	oldMessage, ok := bm.mergedMessages[*info.key]
