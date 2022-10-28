@@ -39,7 +39,7 @@ func NewTableProcessor(output *MysqlBatchOutput, index int) *TableProcessor {
 	proc := &TableProcessor{
 		index:           index,
 		output:          output,
-		collectingBatch: NewBatchMessage(),
+		collectingBatch: NewBatchMessage(!output.config.InsertOnly),
 		inChan:          make(chan *MessageInfo, DefaultInChanSize),
 		flushChan:       make(chan *BatchMessage, DefaultFlushChanSize),
 		conn:            output.conn,
@@ -76,12 +76,16 @@ func (p *TableProcessor) Run() {
 					p.sendFlush()
 				}
 			case msg := <-p.inChan:
-				if err := p.collectingBatch.add(msg); err != nil {
-					p.logger.Error("wrong message sequence found", log.Error(err))
-					p.ack([]*core.Message{msg.message}, err)
-					return
+				if p.output.config.InsertOnly {
+					p.collectingBatch.add(msg)
+				} else {
+					if err := p.collectingBatch.merge(msg); err != nil {
+						p.logger.Error("wrong message sequence found", log.Error(err))
+						p.ack([]*core.Message{msg.message}, err)
+						return
+					}
 				}
-				if p.collectingBatch.size >= p.output.config.FlushBatchSize {
+				if p.collectingBatch.size() >= p.output.config.FlushBatchSize {
 					p.sendFlush()
 				}
 			}
@@ -98,10 +102,16 @@ func copyKey(key []interface{}) *[DefaultMaxComboKeyColumns]interface{} {
 }
 
 func (p *TableProcessor) Process(key []interface{}, dbEvent *core.DBChangeEvent, msg *core.Message) {
-	p.inChan <- &MessageInfo{
-		key:      copyKey(key),
-		dbChange: dbEvent,
-		message:  msg,
+	if p.output.config.InsertOnly {
+		p.inChan <- &MessageInfo{
+			message: msg,
+		}
+	} else {
+		p.inChan <- &MessageInfo{
+			key:      copyKey(key),
+			dbChange: dbEvent,
+			message:  msg,
+		}
 	}
 }
 
@@ -263,15 +273,17 @@ func (p *TableProcessor) filter(messages []*MergedMessage) []*MergedMessage {
 
 func (p *TableProcessor) sendFlush() {
 	p.lastFlushTime = time.Now()
-	if p.collectingBatch.size == 0 {
+	if p.collectingBatch.size() == 0 {
 		return
 	}
 	old := p.collectingBatch
-	p.collectingBatch = NewBatchMessage()
+	p.collectingBatch = NewBatchMessage(old.merged)
 	p.flushChan <- old
 }
 
 func (p *TableProcessor) flush(batchMessage *BatchMessage) {
+	//todo add insert only logic here
+
 	batches := batchMessage.splitByOperation()
 
 	if p.output.config.ExecCRUDConcurrentlyInBatch {

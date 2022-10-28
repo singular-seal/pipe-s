@@ -113,7 +113,7 @@ func (o *MysqlBatchOutput) Process(m *core.Message) {
 	}
 	// TODO: can support more generic unique key in future
 	pk := getPKValue(dbChange, ts)
-	if len(pk) > DefaultMaxComboKeyColumns {
+	if !o.config.InsertOnly && len(pk) > DefaultMaxComboKeyColumns {
 		o.GetInput().Ack(m, fmt.Errorf("don't support pk columns more than %d", DefaultMaxComboKeyColumns))
 		return
 	}

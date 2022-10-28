@@ -12,18 +12,40 @@ type MergedMessage struct {
 }
 
 type BatchMessage struct {
-	size           int
-	mergedMessages map[interface{}]*MergedMessage
+	merged         bool
+	originalSize   int
+	mergedMessages map[interface{}]*MergedMessage // for normal crud scenario
+	messages       []*core.Message                // for insert only scenario
 }
 
-func NewBatchMessage() *BatchMessage {
-	return &BatchMessage{
-		mergedMessages: map[interface{}]*MergedMessage{},
+func NewBatchMessage(merged bool) *BatchMessage {
+	if merged {
+		return &BatchMessage{
+			mergedMessages: map[interface{}]*MergedMessage{},
+			merged:         merged,
+		}
+	} else {
+		return &BatchMessage{
+			messages: []*core.Message{},
+			merged:   merged,
+		}
 	}
 }
 
-func (bm *BatchMessage) add(info *MessageInfo) (err error) {
-	bm.size++
+func (bm *BatchMessage) size() int {
+	if bm.merged {
+		return bm.originalSize
+	} else {
+		return len(bm.messages)
+	}
+}
+
+func (bm *BatchMessage) add(info *MessageInfo) {
+	bm.messages = append(bm.messages, info.message)
+}
+
+func (bm *BatchMessage) merge(info *MessageInfo) (err error) {
+	bm.originalSize++
 	oldMessage, ok := bm.mergedMessages[*info.key]
 	if !ok {
 		bm.mergedMessages[*info.key] = &MergedMessage{
