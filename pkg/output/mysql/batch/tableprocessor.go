@@ -15,6 +15,7 @@ import (
 const DefaultInChanSize = 100
 const DefaultFlushChanSize = 20
 
+// MessageInfo is a convenient struct for parameter passing
 type MessageInfo struct {
 	key      *[DefaultMaxComboKeyColumns]interface{} // unique key of the message
 	dbChange *core.DBChangeEvent
@@ -50,7 +51,7 @@ func NewTableProcessor(output *MysqlBatchOutput, index int) *TableProcessor {
 }
 
 func (p *TableProcessor) Run() {
-	// flushing and collecting messages in different goroutines
+	// flush messages
 	go func() {
 		for {
 			select {
@@ -62,7 +63,7 @@ func (p *TableProcessor) Run() {
 			}
 		}
 	}()
-
+	// collect messages
 	go func() {
 		p.lastFlushTime = time.Now()
 		ticker := time.NewTicker(time.Millisecond * time.Duration(p.output.config.FlushIntervalMS/10+1))
@@ -97,12 +98,8 @@ func copyKey(key []interface{}) *[DefaultMaxComboKeyColumns]interface{} {
 	return &result
 }
 
-func (p *TableProcessor) Process(key []interface{}, dbEvent *core.DBChangeEvent, msg *core.Message) {
-	p.inChan <- &MessageInfo{
-		key:      copyKey(key),
-		dbChange: dbEvent,
-		message:  msg,
-	}
+func (p *TableProcessor) Process(info *MessageInfo) {
+	p.inChan <- info
 }
 
 func (p *TableProcessor) executeBatch(messages []*MergedMessage) {

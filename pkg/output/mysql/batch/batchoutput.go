@@ -36,12 +36,10 @@ type MysqlBatchOutputConfig struct {
 	User           string
 	Password       string
 	MaxConnections int
-
-	TableConcurrency int // processor count for each table
+	// processor count for each table
+	TableConcurrency int
 	FlushIntervalMS  int64
 	FlushBatchSize   int
-
-	InsertOnly bool // for database copy scenario
 	// if exec insert, update, delete and replace micro batches concurrently, will cost more db connections
 	ExecCRUDConcurrentlyInBatch bool
 	// max sql statements sent in one api call, restricted by column counts and mysql server side restriction
@@ -121,7 +119,12 @@ func (o *MysqlBatchOutput) Process(m *core.Message) {
 	processors := o.getTableProcessors(dbChange)
 	// index number in table processors
 	index := o.getProcessorIndex(pk)
-	processors[index].Process(pk, dbChange, m)
+	info := &MessageInfo{
+		key:      copyKey(pk),
+		dbChange: dbChange,
+		message:  m,
+	}
+	processors[index].Process(info)
 }
 
 func getPKValue(event *core.DBChangeEvent, ts *core.Table) []interface{} {
