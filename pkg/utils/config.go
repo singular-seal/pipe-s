@@ -20,6 +20,18 @@ func GetStringFromConfig(config core.StringMap, path string) (string, error) {
 	return value, err
 }
 
+func GetArrayFromConfig(config core.StringMap, path string) ([]interface{}, error) {
+	obj, err := jsonpath.Read(config, path)
+	if err != nil {
+		return nil, err
+	}
+	oa, ok := obj.([]interface{})
+	if !ok {
+		return nil, core.TypeError(obj, "Array")
+	}
+	return oa, nil
+}
+
 func GetConfigArrayFromConfig(config core.StringMap, path string) ([]core.StringMap, error) {
 	obj, err := jsonpath.Read(config, path)
 	if err != nil {

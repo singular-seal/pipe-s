@@ -8,10 +8,10 @@ import (
 
 type MysqlDMLToDBChangeConverter struct {
 	*core.BaseComponent
-	config *MysqlDMLToDBChangeConverterConfig
+	config *MysqlDMLToDBChangeConfig
 }
 
-type MysqlDMLToDBChangeConverterConfig struct {
+type MysqlDMLToDBChangeConfig struct {
 	ID string
 }
 
@@ -22,7 +22,7 @@ func NewMysqlDMLToDBChangeConverter() *MysqlDMLToDBChangeConverter {
 }
 
 func (c *MysqlDMLToDBChangeConverter) Configure(config core.StringMap) (err error) {
-	co := &MysqlDMLToDBChangeConverterConfig{}
+	co := &MysqlDMLToDBChangeConfig{}
 	err = utils.ConfigToStruct(config, co)
 	return err
 }

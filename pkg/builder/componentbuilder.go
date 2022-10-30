@@ -11,6 +11,7 @@ import (
 	"github.com/singular-seal/pipe-s/pkg/pipeline/simple"
 	"github.com/singular-seal/pipe-s/pkg/processor/converter"
 	"github.com/singular-seal/pipe-s/pkg/processor/json"
+	"github.com/singular-seal/pipe-s/pkg/processor/mapping"
 	"github.com/singular-seal/pipe-s/pkg/utils"
 )
 
@@ -183,6 +184,9 @@ func InitComponentBuilder(logger *log.Logger) {
 	})
 	dc.RegisterComponent("MysqlDMLToDBChangeConverter", func() core.Component {
 		return converter.NewMysqlDMLToDBChangeConverter()
+	})
+	dc.RegisterComponent("DBChangeMappingProcessor", func() core.Component {
+		return mapping.NewDBChangeMappingProcessor()
 	})
 
 }
