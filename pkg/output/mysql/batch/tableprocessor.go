@@ -45,6 +45,7 @@ func NewTableProcessor(output *MysqlBatchOutput, index int) *TableProcessor {
 		flushChan:       make(chan *BatchMessage, DefaultFlushChanSize),
 		conn:            output.conn,
 		flushWait:       &sync.WaitGroup{},
+		stopContext:     output.stopWaitContext,
 		logger:          output.GetLogger(),
 	}
 	return proc
