@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/singular-seal/pipe-s/pkg/core"
+	"github.com/singular-seal/pipe-s/pkg/schema"
 	"github.com/singular-seal/pipe-s/pkg/utils"
 	"hash/fnv"
 	"strings"
@@ -24,6 +25,7 @@ type MysqlBatchOutput struct {
 	config          *MysqlBatchOutputConfig
 	tableProcessors map[string][]*TableProcessor
 	conn            *sql.DB
+	schemaStore     schema.SchemaStore // the schema store to load table schemas
 
 	stopWaitContext context.Context
 	stopCancel      context.CancelFunc
@@ -64,11 +66,14 @@ func (o *MysqlBatchOutput) Start() (err error) {
 		return
 	}
 	o.conn.SetMaxIdleConns(o.config.MaxConnections)
+	o.schemaStore = schema.NewSimpleSchemaStoreWithClient(o.conn)
+	o.schemaStore.SetLogger(o.GetLogger())
 	return nil
 }
 
 func (o *MysqlBatchOutput) Stop() {
 	o.stopCancel()
+	o.schemaStore.Close()
 	if err := utils.CloseMysqlClient(o.conn); err != nil {
 		o.GetLogger().Error("MysqlBatchOutput failed close db connection")
 	}
@@ -104,9 +109,9 @@ func (o *MysqlBatchOutput) Configure(config core.StringMap) (err error) {
 
 func (o *MysqlBatchOutput) Process(m *core.Message) {
 	dbChange := m.Data.(*core.DBChangeEvent)
-	ts, ok := m.GetTableSchema()
-	if !ok {
-		o.GetInput().Ack(m, core.NoSchemaError(dbChange.Database, dbChange.Table))
+	ts, err := o.schemaStore.GetTable(dbChange.Database, dbChange.Table)
+	if err != nil {
+		o.GetInput().Ack(m, err)
 		return
 	}
 	// TODO: can support more generic unique key in future

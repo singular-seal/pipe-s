@@ -16,6 +16,7 @@ const TableNotFoundError = 1146
 type SimpleSchemaStore struct {
 	schemas map[string]map[string]*core.Table // dbname->tablename->*FullTableName
 	conn    *sql.DB
+	ownConn bool
 	logger  *log.Logger
 }
 
@@ -28,6 +29,7 @@ func NewSimpleSchemaStoreWithParameters(host string, port uint16, user string, p
 	return &SimpleSchemaStore{
 		schemas: make(map[string]map[string]*core.Table),
 		conn:    client,
+		ownConn: true,
 	}, nil
 }
 
@@ -36,6 +38,7 @@ func NewSimpleSchemaStoreWithClient(client *sql.DB) *SimpleSchemaStore {
 	return &SimpleSchemaStore{
 		schemas: make(map[string]map[string]*core.Table),
 		conn:    client,
+		ownConn: false,
 	}
 }
 
@@ -53,6 +56,9 @@ func (s *SimpleSchemaStore) GetType() string {
 }
 
 func (s *SimpleSchemaStore) Close() {
+	if !s.ownConn {
+		return
+	}
 	if s.conn != nil {
 		err := s.conn.Close()
 		if err != nil {
