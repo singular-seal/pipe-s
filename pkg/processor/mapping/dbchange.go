@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"github.com/singular-seal/pipe-s/pkg/core"
 	"github.com/singular-seal/pipe-s/pkg/utils"
+	"regexp"
+	"strings"
 )
 
 type DBInfo struct {
@@ -19,7 +21,9 @@ type TableInfo struct {
 
 type DBChangeMappingProcessor struct {
 	*core.BaseComponent
-	mappings map[string]*DBInfo // source db -> target db info
+	dbNamePattern    *regexp.Regexp
+	tableNamePattern *regexp.Regexp
+	mappings         map[string]*DBInfo // source db -> target db info
 }
 
 func NewDBChangeMappingProcessor() *DBChangeMappingProcessor {
@@ -29,7 +33,18 @@ func NewDBChangeMappingProcessor() *DBChangeMappingProcessor {
 	}
 }
 
-func (p *DBChangeMappingProcessor) Configure(config core.StringMap) error {
+func (p *DBChangeMappingProcessor) Configure(config core.StringMap) (err error) {
+	if dbPattern, _ := utils.GetStringFromConfig(config, "DBNamePattern"); len(dbPattern) > 0 {
+		if p.dbNamePattern, err = regexp.Compile(dbPattern); err != nil {
+			return
+		}
+	}
+	if tablePattern, _ := utils.GetStringFromConfig(config, "TableNamePattern"); len(tablePattern) > 0 {
+		if p.dbNamePattern, err = regexp.Compile(tablePattern); err != nil {
+			return
+		}
+	}
+
 	mappings, err := utils.GetConfigArrayFromConfig(config, "$.Mappings")
 	if err != nil {
 		return err
@@ -159,19 +174,53 @@ func configureColumnMapping(tableInfo *TableInfo, sourceTableMap core.StringMap,
 
 func (p *DBChangeMappingProcessor) Process(msg *core.Message) (skip bool, err error) {
 	event := msg.Data.(*core.DBChangeEvent)
-	dbInfo, ok := p.mappings[event.Database]
-	if !ok {
-		return
+	var useLogicalDB, useLogicalTable bool
+	var logicalDB, logicalTable string
+
+	if p.dbNamePattern != nil {
+		matches := p.dbNamePattern.FindStringSubmatch(event.Database)
+		if len(matches) > 1 {
+			useLogicalDB = true
+			logicalDB = matches[1]
+		}
 	}
-	event.Database = dbInfo.targetDB
+	if p.tableNamePattern != nil {
+		matches := p.tableNamePattern.FindStringSubmatch(event.Table)
+		if len(matches) > 1 {
+			useLogicalTable = true
+			logicalTable = matches[1]
+		}
+	}
+	// mapping database name
+	var dbInfo *DBInfo
+	var ok bool
+	if useLogicalDB {
+		if dbInfo, ok = p.mappings[logicalDB]; !ok {
+			return
+		}
+		event.Database = strings.Replace(event.Database, logicalDB, dbInfo.targetDB, 1)
+	} else {
+		if dbInfo, ok = p.mappings[event.Database]; !ok {
+			return
+		}
+		event.Database = dbInfo.targetDB
+	}
+	// mapping table name
 	if dbInfo.tableMapping == nil {
 		return
 	}
-	tableInfo, ok := dbInfo.tableMapping[event.Table]
-	if !ok {
-		return
+	var tableInfo *TableInfo
+	if useLogicalTable {
+		if tableInfo, ok = dbInfo.tableMapping[logicalTable]; !ok {
+			return
+		}
+		event.Table = strings.Replace(event.Table, logicalTable, tableInfo.targetTable, 1)
+	} else {
+		if tableInfo, ok = dbInfo.tableMapping[event.Table]; !ok {
+			return
+		}
+		event.Table = tableInfo.targetTable
 	}
-	event.Table = tableInfo.targetTable
 
 	if tableInfo.actionMapping != nil {
 		processActionMapping(event, tableInfo.actionMapping)

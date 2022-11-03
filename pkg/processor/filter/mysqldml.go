@@ -7,9 +7,9 @@ import (
 )
 
 type MysqlDMLFilterConfig struct {
-	ID             string
-	TableNameRegex string
-	Operations     []string
+	ID                   string
+	FullTableNamePattern string
+	Operations           []string
 }
 
 // MysqlDMLFilter filter dml events by full table name and operations. We don't filter columns here
@@ -34,8 +34,8 @@ func (f *MysqlDMLFilter) Configure(config core.StringMap) (err error) {
 	}
 	f.ID = c.ID
 
-	if len(c.TableNameRegex) > 0 {
-		if f.tableRegex, err = regexp.Compile(c.TableNameRegex); err != nil {
+	if len(c.FullTableNamePattern) > 0 {
+		if f.tableRegex, err = regexp.Compile(c.FullTableNamePattern); err != nil {
 			return
 		}
 	}
