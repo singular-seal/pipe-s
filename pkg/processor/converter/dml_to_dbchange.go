@@ -58,6 +58,7 @@ func (c *MysqlDMLToDBChangeConverter) Process(msg *core.Message) (bool, error) {
 		}
 	}
 	msg.Data = dbChange
+	msg.Type = core.TypeDBChange
 	return false, nil
 }
 

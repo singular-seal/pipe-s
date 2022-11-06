@@ -9,6 +9,7 @@ import (
 const (
 	TypeDML      = "dml"
 	TypeJsonByte = "json_byte"
+	TypeDBChange = "db_change"
 )
 
 type MessageHeader struct {
