@@ -14,7 +14,6 @@ import (
 const (
 	DefaultDisruptorBufferSize   = 8192
 	DefaultDisruptorConcurrency  = 4
-	MuxStreamBufferMask          = DefaultDisruptorBufferSize - 1
 	DefaultCheckProgressInterval = time.Second * 30
 )
 
@@ -37,6 +36,7 @@ type DisruptorPipeline struct {
 	config        *DisruptorPipelineConfig
 	disruptor     disruptor.Disruptor
 	ringBuffer    []*DisruptorEvent
+	bufferMask    int64
 	inQueueCount  uint64 // +1 when receives a msg
 	outQueueCount uint64 // +1 when a msg is acked
 	stop          bool
@@ -59,7 +59,7 @@ func (c ProcessConsumer) Consume(lower, upper int64) {
 		if lower&c.concurrencyMask != c.num {
 			continue
 		}
-		event := c.pipeline.ringBuffer[lower&MuxStreamBufferMask]
+		event := c.pipeline.ringBuffer[lower&c.pipeline.bufferMask]
 		skip, err := c.pipeline.ApplyProcessors(event.msg)
 		if skip || err != nil {
 			event.err = err
@@ -74,7 +74,7 @@ type SendConsumer struct {
 
 func (c SendConsumer) Consume(lower, upper int64) {
 	for ; lower <= upper; lower++ {
-		event := c.pipeline.ringBuffer[lower&MuxStreamBufferMask]
+		event := c.pipeline.ringBuffer[lower&c.pipeline.bufferMask]
 		if event.skip || event.err != nil {
 			c.pipeline.GetInput().Ack(event.msg, event.err)
 			continue
@@ -92,7 +92,7 @@ type AckConsumer struct {
 
 func (c AckConsumer) Consume(lower, upper int64) {
 	for ; lower <= upper; lower++ {
-		event := c.pipeline.ringBuffer[lower&MuxStreamBufferMask]
+		event := c.pipeline.ringBuffer[lower&c.pipeline.bufferMask]
 		if event.skip || event.err != nil {
 			c.pipeline.outQueueCount++
 			// should already been acked in previous consumer
@@ -131,7 +131,7 @@ func (p *DisruptorPipeline) StartPipeline() (err error) {
 		}
 	}
 	// start disruptor
-	p.ringBuffer = make([]*DisruptorEvent, DefaultDisruptorBufferSize)
+	p.ringBuffer = make([]*DisruptorEvent, p.config.BufferSize)
 	processGroup := make([]disruptor.Consumer, 0)
 	for i := 0; i < p.config.Concurrency; i++ {
 		processGroup = append(processGroup, ProcessConsumer{
@@ -172,7 +172,7 @@ func (p *DisruptorPipeline) Ack(msg *core.Message, err error) {
 
 func (p *DisruptorPipeline) Process(msg *core.Message) {
 	sequence := p.disruptor.Reserve(1)
-	p.ringBuffer[sequence&MuxStreamBufferMask] = &DisruptorEvent{msg: msg}
+	p.ringBuffer[sequence&p.bufferMask] = &DisruptorEvent{msg: msg}
 	p.disruptor.Commit(sequence, sequence)
 	p.inQueueCount++
 }
@@ -200,6 +200,7 @@ func (p *DisruptorPipeline) Configure(config core.StringMap) (err error) {
 	if p.config.BufferSize == 0 {
 		p.config.BufferSize = DefaultDisruptorBufferSize
 	}
+	p.bufferMask = int64(p.config.BufferSize) - 1
 	return
 }
 
