@@ -20,6 +20,7 @@ const (
 	DefaultMaxComboKeyColumns = 5
 )
 
+// MysqlBatchOutput has some restrictions 1.target table must have pk 2.column counts in pk should be less than 5
 type MysqlBatchOutput struct {
 	*core.BaseOutput
 	config          *MysqlBatchOutputConfig
