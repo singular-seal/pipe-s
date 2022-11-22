@@ -509,7 +509,7 @@ func (c *EventConsumer) newDMLMessage(pos *core.MysqlBinlogPosition, rowIndex in
 		Operation:     op,
 	}
 
-	m.SetMeta(core.MetaMySQLPos, mysqlEvent.Pos)
+	m.SetMeta(core.MetaMySqlPos, mysqlEvent.Pos)
 	m.SetMeta(core.MetaTableSchema, ts)
 	m.Data = mysqlEvent
 	return m
@@ -550,7 +550,7 @@ func (in *MysqlBinlogInput) GetState() ([]byte, bool) {
 	if m == nil {
 		return nil, false
 	}
-	obj, ok := m.GetMeta(core.MetaMySQLPos)
+	obj, ok := m.GetMeta(core.MetaMySqlPos)
 	if !ok || obj == nil {
 		in.GetLogger().Error("position not found in meta", log.String("message_id", m.Header.ID))
 		return nil, true
@@ -571,4 +571,5 @@ func (in *MysqlBinlogInput) GetState() ([]byte, bool) {
 
 func (in *MysqlBinlogInput) Stop() {
 	in.syncer.Close()
+	in.schemaStore.Close()
 }

@@ -14,6 +14,7 @@ const (
 
 type MessageHeader struct {
 	ID         string              // ID of the message
+	Sequence   uint64              // In process unique message identifier
 	CreateTime uint64              // Unix timestamp in nanoseconds
 	MetaMap    map[int]interface{} // Other meta data
 }
@@ -65,7 +66,8 @@ func NewMessage(typeName string) *Message {
 const (
 	MetaUndefined int = iota
 	CustomVariable
-	MetaMySQLPos
+	MetaMySqlPos
+	MetaMySqlScanPos
 	MetaTableSchema
 	AckWaitGroup
 )

@@ -5,9 +5,11 @@ import (
 	"database/sql"
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/pingcap/errors"
 	"github.com/pingcap/parser/ast"
 	"github.com/singular-seal/pipe-s/pkg/core"
 	"math/rand"
+	"reflect"
 	"strings"
 	"time"
 )
@@ -220,4 +222,92 @@ func GenerateSqlAndArgs(event *core.DBChangeEvent, keyColumns []string) (sqlStri
 	default:
 	}
 	return
+}
+
+func NewBatchDataPointers(columnTypes []*sql.ColumnType, size int) [][]interface{} {
+	ret := make([][]interface{}, size)
+	for idx := 0; idx < size; idx++ {
+		vPtrs := make([]interface{}, len(columnTypes))
+		for columnIdx := range columnTypes {
+			scanType := GetScanType(columnTypes[columnIdx])
+			vptr := reflect.New(scanType)
+			vPtrs[columnIdx] = vptr.Interface()
+		}
+		ret[idx] = vPtrs
+	}
+	return ret
+}
+
+func ScanRowsWithDataPointers(rows *sql.Rows, columnTypes []*sql.ColumnType, vPtrs []interface{}) ([]interface{}, error) {
+	if err := rows.Scan(vPtrs...); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	for i := range columnTypes {
+		p, err := getScanPtrSafe(i, columnTypes, vPtrs)
+		if err != nil {
+			return nil, err
+		}
+		vPtrs[i] = p
+	}
+	return vPtrs, nil
+}
+
+func getScanPtrSafe(columnIdx int, columnTypes []*sql.ColumnType, vPtrs []interface{}) (interface{}, error) {
+	scanType := GetScanType(columnTypes[columnIdx])
+	if scanType.String() == "sql.RawBytes" {
+		data := reflect.ValueOf(vPtrs[columnIdx]).Elem().Interface()
+		dataRawBytes, ok := data.(sql.RawBytes)
+		if !ok {
+			return nil, fmt.Errorf("failed_convert_sql.RawBytes")
+		}
+		var b sql.RawBytes
+		if dataRawBytes != nil {
+			b = make(sql.RawBytes, len(dataRawBytes))
+			copy(b, dataRawBytes)
+		}
+		return &b, nil
+	}
+
+	return vPtrs[columnIdx], nil
+}
+
+func GetScanType(columnType *sql.ColumnType) reflect.Type {
+	if isFloatColumn(columnType) {
+		return reflect.TypeOf(sql.NullFloat64{})
+	} else if isStringColumn(columnType) {
+		return reflect.TypeOf(sql.NullString{})
+	} else {
+		return columnType.ScanType()
+	}
+}
+
+func isStringColumn(columnType *sql.ColumnType) bool {
+	typeName := columnType.DatabaseTypeName()
+	return strings.Contains(typeName, "TEXT") ||
+		strings.Contains(typeName, "CHAR") ||
+		strings.Contains(typeName, "JSON")
+}
+
+func isFloatColumn(columnType *sql.ColumnType) bool {
+	typeName := columnType.DatabaseTypeName()
+	return strings.Contains(typeName, "DECIMAL")
+}
+
+func GetColumnTypes(db string, table string, cols []string, conn *sql.DB) ([]*sql.ColumnType, error) {
+	var colStat string
+	if len(cols) == 0 {
+		colStat = "*"
+	} else {
+		colStat = strings.Join(cols, ",")
+	}
+
+	stat := fmt.Sprintf("select %s from `%s`.`%s` limit 1", colStat, db, table)
+	rows, err := conn.Query(stat)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	return rows.ColumnTypes()
 }

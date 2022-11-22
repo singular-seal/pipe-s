@@ -70,3 +70,11 @@ func (t *Table) ColumnNames() []string {
 	}
 	return result
 }
+
+func (t *Table) PKColumnNames() []string {
+	result := make([]string, 0)
+	for _, each := range t.PKColumns {
+		result = append(result, each.Name)
+	}
+	return result
+}
