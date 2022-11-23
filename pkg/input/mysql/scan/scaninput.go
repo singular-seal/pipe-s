@@ -232,46 +232,55 @@ func (in *MysqlScanInput) Ack(msg *core.Message, err error) {
 	}
 }
 
-// todo implent it here
 func (in *MysqlScanInput) GetState() ([]byte, bool) {
-	done := true
-	//SyncMap can't be marshalled by json, so transfer to a normal map.
-	state := &MysqlDumpTaskState{
-		Progress: make(map[string]*TableState),
-		Error:    "",
+	if in.lastAckError.Load() != nil {
+		in.GetLogger().Error("error found", log.Error(in.lastAckError.Load().(error)))
+		return nil, true
 	}
-	s.batchState.Range(func(key, value interface{}) bool {
+
+	done := true
+	dumpState := make(map[[2]string]*TableState)
+	in.scanState.Range(func(key, value interface{}) bool {
 		tableState := value.(*TableState)
-		tableKey := key.(core.TableKey)
-		//todo sometimes there is dirty empty key, didn't find where it comes, should investigate
-		if len(tableKey.Database) == 0 || len(tableKey.Table) == 0 {
+		tableKey := key.([2]string)
+		if len(tableKey[0]) == 0 || len(tableKey[1]) == 0 {
 			return true
 		}
 		if !tableState.Done {
 			done = false
 		}
 
-		state.Progress[tableKey.ToString()] = tableState
+		dumpState[tableKey] = tableState
 		return true
 	})
 
 	if done {
-		s.Logger.Info("all_tasks_done")
+		in.GetLogger().Info("task done")
 	}
 
-	if s.lastError != nil {
-		s.Logger.WithError(s.lastError).Error("task_has_error")
-		state.Error = s.lastError.Error()
-		done = true
-	}
-
-	result, err := json.Marshal(state)
+	result, err := json.Marshal(dumpState)
 	if err != nil {
-		s.Logger.WithError(err).WithField("state", s.batchState).
-			Error("marshal_batch_state_error")
-
+		in.GetLogger().Error("marshal state error", log.Error(err))
 	}
 	return result, done
+}
+
+func (in *MysqlScanInput) SetState(state []byte) (err error) {
+	if len(state) == 0 {
+		return
+	}
+
+	var dumpState map[[2]string]*TableState
+	scanStateMap := sync.Map{}
+	if err = json.Unmarshal(state, &dumpState); err != nil {
+		return
+	}
+
+	for k, v := range dumpState {
+		scanStateMap.Store(k, v)
+	}
+	in.scanState = &scanStateMap
+	return
 }
 
 func (scanner *TableScanner) scanTable(table *core.Table) (err error) {
@@ -302,7 +311,11 @@ func (scanner *TableScanner) scanTable(table *core.Table) (err error) {
 	scanner.logger.Info("start scan", log.String("db", table.DBName),
 		log.String("table", table.TableName), log.Int64("total", tableState.EstimatedCount), log.Int64("start", tableState.FinishedCount))
 
-	minValue := tableState.ColumnStates.Load().([]interface{})
+	var minValue []interface{}
+	if obj := tableState.ColumnStates.Load(); obj == nil {
+		minValue = obj.([]interface{})
+	}
+
 	// pivotIndex starts with the right most index column will change in loop
 	pivotIndex := len(table.PKColumns) - 1
 
@@ -398,19 +411,22 @@ func (scanner *TableScanner) generateScanSqlAndArgs(
 	prefix := fmt.Sprintf("select * from `%s`.`%s` where ", table.DBName, table.TableName)
 
 	var args []interface{}
-	var where []string
+	var whereString string
+	if len(minValue) == 0 {
+		whereString = "1=1"
+	} else {
+		var where []string
+		for i := 0; i <= pivotIndex-1; i++ {
+			where = append(where, fmt.Sprintf("%s = ?", scanColumns[i]))
+			args = append(args, minValue[i])
+		}
 
-	for i := 0; i <= pivotIndex-1; i++ {
-		where = append(where, fmt.Sprintf("%s = ?", scanColumns[i]))
-		args = append(args, minValue[i])
+		where = append(where, fmt.Sprintf("%s >= ?", scanColumns[pivotIndex]))
+		args = append(args, minValue[pivotIndex])
+		whereString = strings.Join(where, " and ")
 	}
 
-	where = append(where, fmt.Sprintf("%s >= ?", scanColumns[pivotIndex]))
-	args = append(args, minValue[pivotIndex])
-
-	whereString := strings.Join(where, " and ")
 	orderByString := strings.Join(scanColumns, ", ")
-
 	query := fmt.Sprintf("%s%s order by %s limit ?", prefix, whereString, orderByString)
 	args = append(args, batch)
 	return query, args

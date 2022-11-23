@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/singular-seal/pipe-s/pkg/core"
 	"github.com/singular-seal/pipe-s/pkg/input/mysql/binlog"
+	"github.com/singular-seal/pipe-s/pkg/input/mysql/scan"
 	"github.com/singular-seal/pipe-s/pkg/log"
 	"github.com/singular-seal/pipe-s/pkg/output/dummy"
 	"github.com/singular-seal/pipe-s/pkg/output/logoutput"
@@ -166,6 +167,9 @@ func InitComponentBuilder(logger *log.Logger) {
 
 	dc.RegisterComponent("MysqlBinlogInput", func() core.Component {
 		return binlog.NewMysqlBinlogInput()
+	})
+	dc.RegisterComponent("NewMysqlScanInput", func() core.Component {
+		return scan.NewMysqlScanInput()
 	})
 	dc.RegisterComponent("DisruptorPipeline", func() core.Component {
 		return simple.NewDisruptorPipeline()
