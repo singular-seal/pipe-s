@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	DefaultBatchSize   = 128
+	DefaultBatchSize   = 1000
 	DefaultConcurrency = 8
 )
 
@@ -239,7 +239,7 @@ func (in *MysqlScanInput) GetState() ([]byte, bool) {
 	}
 
 	done := true
-	dumpState := make(map[[2]string]*TableState)
+	dumpState := make(map[string]*TableState)
 	in.scanState.Range(func(key, value interface{}) bool {
 		tableState := value.(*TableState)
 		tableKey := key.([2]string)
@@ -250,7 +250,7 @@ func (in *MysqlScanInput) GetState() ([]byte, bool) {
 			done = false
 		}
 
-		dumpState[tableKey] = tableState
+		dumpState[fmt.Sprintf("%s.%s", tableKey[0], tableKey[1])] = tableState
 		return true
 	})
 
@@ -270,14 +270,18 @@ func (in *MysqlScanInput) SetState(state []byte) (err error) {
 		return
 	}
 
-	var dumpState map[[2]string]*TableState
+	var dumpState map[string]*TableState
 	scanStateMap := sync.Map{}
 	if err = json.Unmarshal(state, &dumpState); err != nil {
 		return
 	}
 
 	for k, v := range dumpState {
-		scanStateMap.Store(k, v)
+		parts := strings.Split(k, ".")
+		if len(parts) != 2 {
+			return fmt.Errorf("wrong table name:%s", k)
+		}
+		scanStateMap.Store([2]string{parts[0], parts[1]}, v)
 	}
 	in.scanState = &scanStateMap
 	return
@@ -312,7 +316,7 @@ func (scanner *TableScanner) scanTable(table *core.Table) (err error) {
 		log.String("table", table.TableName), log.Int64("total", tableState.EstimatedCount), log.Int64("start", tableState.FinishedCount))
 
 	var minValue []interface{}
-	if obj := tableState.ColumnStates.Load(); obj == nil {
+	if obj := tableState.ColumnStates.Load(); obj != nil {
 		minValue = obj.([]interface{})
 	}
 
