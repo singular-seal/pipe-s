@@ -36,6 +36,7 @@ type MysqlScanInput struct {
 	Config       *MysqlScanInputConfig
 	dbConnection *sql.DB
 	schemaStore  schema.SchemaStore
+	sendLock     sync.Mutex
 	scanState    *sync.Map
 	// last message sequence of each table processed
 	lastMsgSequences *sync.Map
@@ -361,6 +362,7 @@ func (scanner *TableScanner) scanTable(table *core.Table) (err error) {
 		}
 
 		//fire messages
+		scanner.input.sendLock.Lock()
 		for i := 0; i < rowIdx; i++ {
 			rowVal := utils.ReadDataFromPointers(batchDataPointers[i])
 			pkVal := getPKValue(rowVal, table)
@@ -376,6 +378,7 @@ func (scanner *TableScanner) scanTable(table *core.Table) (err error) {
 			}
 			scanner.input.GetOutput().Process(msg)
 		}
+		scanner.input.sendLock.Unlock()
 
 		if lastBatch {
 			scanner.logger.Info("finished scan table", log.String("db", table.DBName), log.String("table", table.TableName))
