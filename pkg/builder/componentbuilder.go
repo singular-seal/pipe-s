@@ -168,7 +168,7 @@ func InitComponentBuilder(logger *log.Logger) {
 	dc.RegisterComponent("MysqlBinlogInput", func() core.Component {
 		return binlog.NewMysqlBinlogInput()
 	})
-	dc.RegisterComponent("NewMysqlScanInput", func() core.Component {
+	dc.RegisterComponent("MysqlScanInput", func() core.Component {
 		return scan.NewMysqlScanInput()
 	})
 	dc.RegisterComponent("DisruptorPipeline", func() core.Component {
