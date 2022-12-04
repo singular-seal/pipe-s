@@ -333,8 +333,8 @@ func (scanner *TableScanner) scanTable(table *core.Table) (err error) {
 	for {
 		// scan table, it scans BatchSize+1 records in which the last record helps use to locate the start of next batch and the last batch
 		statement, args := scanner.generateScanSqlAndArgs(table, table.PKColumnNames(), pivotIndex, minValue, scanner.batchSize+1)
-		scanner.logger.Info("start scan", log.String("db", table.DBName), log.String("table", table.TableName),
-			log.String("pk", fmt.Sprint(minValue)))
+		//scanner.logger.Debug("start scan", log.String("db", table.DBName), log.String("table", table.TableName),
+		//	log.String("pk", fmt.Sprint(minValue)))
 
 		var rows *sql.Rows
 		if rows, err = scanner.input.dbConnection.Query(statement, args...); err != nil {
