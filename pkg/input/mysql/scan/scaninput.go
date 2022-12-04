@@ -219,7 +219,7 @@ func (in *MysqlScanInput) Ack(msg *core.Message, err error) {
 	obj, _ := in.scanState.Load(key)
 	tableState := obj.(*TableState)
 	cs, _ := msg.GetMeta(core.MetaMySqlScanPos)
-	tableState.ColumnStates.Store(cs)
+	tableState.ColumnStatesValue.Store(cs)
 	atomic.AddInt64(&tableState.FinishedCount, 1)
 
 	seqObj, ok := in.lastMsgSequences.Load(key)
@@ -251,6 +251,9 @@ func (in *MysqlScanInput) GetState() ([]byte, bool) {
 			done = false
 		}
 
+		if obj := tableState.ColumnStatesValue.Load(); obj != nil {
+			tableState.ColumnStates = obj.([]interface{})
+		}
 		dumpState[fmt.Sprintf("%s.%s", tableKey[0], tableKey[1])] = tableState
 		return true
 	})
@@ -281,6 +284,9 @@ func (in *MysqlScanInput) SetState(state []byte) (err error) {
 		parts := strings.Split(k, ".")
 		if len(parts) != 2 {
 			return fmt.Errorf("wrong table name:%s", k)
+		}
+		if v.ColumnStates != nil {
+			v.ColumnStatesValue.Store(v.ColumnStates)
 		}
 		scanStateMap.Store([2]string{parts[0], parts[1]}, v)
 	}
@@ -317,7 +323,7 @@ func (scanner *TableScanner) scanTable(table *core.Table) (err error) {
 		log.String("table", table.TableName), log.Int64("total", tableState.EstimatedCount), log.Int64("start", tableState.FinishedCount))
 
 	var minValue []interface{}
-	if obj := tableState.ColumnStates.Load(); obj != nil {
+	if obj := tableState.ColumnStatesValue.Load(); obj != nil {
 		minValue = obj.([]interface{})
 	}
 

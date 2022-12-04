@@ -8,12 +8,13 @@ import (
 )
 
 type TableState struct {
-	TableName      string
-	DBName         string
-	ColumnStates   atomic.Value
-	EstimatedCount int64
-	FinishedCount  int64
-	Done           bool
+	TableName         string
+	DBName            string
+	ColumnStatesValue atomic.Value  `json:"-"`
+	ColumnStates      []interface{} // for json marshall and unmarshall
+	EstimatedCount    int64
+	FinishedCount     int64
+	Done              bool
 }
 
 func InitTableState(state *TableState, table *core.Table, conn *sql.DB) (err error) {
