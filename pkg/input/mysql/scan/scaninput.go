@@ -286,12 +286,37 @@ func (in *MysqlScanInput) SetState(state []byte) (err error) {
 			return fmt.Errorf("wrong table name:%s", k)
 		}
 		if v.ColumnStates != nil {
+			if err = fixColumnStates(v.ColumnStates); err != nil {
+				return
+			}
 			v.ColumnStatesValue.Store(v.ColumnStates)
 		}
 		scanStateMap.Store([2]string{parts[0], parts[1]}, v)
 	}
 	in.scanState = &scanStateMap
 	return
+}
+
+func fixColumnStates(columnStates []interface{}) error {
+	for i := 0; i < len(columnStates); i++ {
+		state := columnStates[i]
+		if data, ok := state.(map[string]interface{}); ok {
+			if v, ok := data["String"]; ok {
+				columnStates[i] = sql.NullString{
+					String: v.(string),
+					Valid:  data["Valid"].(bool),
+				}
+			} else if v, ok := data["Float64"]; ok {
+				columnStates[i] = sql.NullFloat64{
+					Float64: v.(float64),
+					Valid:   data["Valid"].(bool),
+				}
+			} else {
+				return fmt.Errorf("unsupported column state:%v", state)
+			}
+		}
+	}
+	return nil
 }
 
 func (scanner *TableScanner) scanTable(table *core.Table) (err error) {
