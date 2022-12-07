@@ -453,15 +453,33 @@ func (scanner *TableScanner) generateScanSqlAndArgs(
 	if len(minValue) == 0 {
 		whereString = "1=1"
 	} else {
-		var where []string
-		for i := 0; i <= pivotIndex-1; i++ {
-			where = append(where, fmt.Sprintf("%s = ?", scanColumns[i]))
-			args = append(args, minValue[i])
+		// generate conditions like '(col1>1) or (col1=1 and col2>15) or (col1=1 and col2=15 and col3>=33)' for pk (1,15,33)
+		var ors []string
+		for i := 0; i <= pivotIndex; i++ {
+			ands := make([]string, 0)
+			for j := 0; j < i; j++ {
+				ands = append(ands, "%s = ?", scanColumns[j])
+				args = append(args, minValue[j])
+			}
+			if i == pivotIndex {
+				ands = append(ands, "%s >= ?", scanColumns[i])
+				args = append(args, minValue[i])
+			} else {
+				ands = append(ands, "%s > ?", scanColumns[i])
+				args = append(args, minValue[i])
+			}
+			ors = append(ors, fmt.Sprintf("(%s)", strings.Join(ands, " and ")))
 		}
+		whereString = strings.Join(ors, " or ")
+		/*		var where []string
+				for i := 0; i <= pivotIndex-1; i++ {
+					where = append(where, fmt.Sprintf("%s = ?", scanColumns[i]))
+					args = append(args, minValue[i])
+				}
 
-		where = append(where, fmt.Sprintf("%s >= ?", scanColumns[pivotIndex]))
-		args = append(args, minValue[pivotIndex])
-		whereString = strings.Join(where, " and ")
+				where = append(where, fmt.Sprintf("%s >= ?", scanColumns[pivotIndex]))
+				args = append(args, minValue[pivotIndex])
+		*/
 	}
 
 	orderByString := strings.Join(scanColumns, ", ")
