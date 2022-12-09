@@ -352,12 +352,9 @@ func (scanner *TableScanner) scanTable(table *core.Table) (err error) {
 		minValue = obj.([]interface{})
 	}
 
-	// pivotIndex starts with the right most index column will change in loop
-	pivotIndex := len(table.PKColumns) - 1
-
 	for {
 		// scan table, it scans BatchSize+1 records in which the last record helps use to locate the start of next batch and the last batch
-		statement, args := scanner.generateScanSqlAndArgs(table, table.PKColumnNames(), pivotIndex, minValue, scanner.batchSize+1)
+		statement, args := scanner.generateScanSqlAndArgs(table, table.PKColumnNames(), minValue, scanner.batchSize+1)
 		//scanner.logger.Debug("start scan", log.String("db", table.DBName), log.String("table", table.TableName),
 		//	log.String("pk", fmt.Sprint(minValue)))
 
@@ -382,15 +379,6 @@ func (scanner *TableScanner) scanTable(table *core.Table) (err error) {
 
 		// didn't find enough rows, so it is the last batch
 		lastBatch := rowIdx < scanner.batchSize+1
-		if !lastBatch {
-			pivotIndex, err = findPivot(
-				utils.ReadDataFromPointers(batchDataPointers[scanner.batchSize-1]),
-				utils.ReadDataFromPointers(batchDataPointers[scanner.batchSize]),
-			)
-			if err != nil {
-				return
-			}
-		}
 
 		//fire messages
 		scanner.input.sendLock.Lock()
@@ -426,23 +414,10 @@ func getPKValue(row []interface{}, table *core.Table) []interface{} {
 	return r
 }
 
-func findPivot(last []interface{}, next []interface{}) (int, error) {
-	if len(last) != len(next) {
-		return 0, fmt.Errorf("column count not match %d:%d", len(last), len(next))
-	}
-	for i := 0; i < len(last); i++ {
-		if last[i] != next[i] {
-			return i, nil
-		}
-	}
-	return 0, fmt.Errorf("different rows have same pk")
-}
-
 // pivotIndex is an index in scanColumns for where condition generation
 func (scanner *TableScanner) generateScanSqlAndArgs(
 	table *core.Table,
 	scanColumns []string,
-	pivotIndex int,
 	minValue []interface{},
 	batch int) (string, []interface{}) {
 
@@ -456,13 +431,14 @@ func (scanner *TableScanner) generateScanSqlAndArgs(
 		// generate conditions like '(col1>1) or (col1=1 and col2>15) or (col1=1 and col2=15 and col3>=33)'
 		// for pk like (1,15,33)
 		var ors []string
-		for i := 0; i <= pivotIndex; i++ {
+		n := len(scanColumns) - 1
+		for i := 0; i <= n; i++ {
 			ands := make([]string, 0)
 			for j := 0; j < i; j++ {
 				ands = append(ands, fmt.Sprintf("%s = ?", scanColumns[j]))
 				args = append(args, minValue[j])
 			}
-			if i == pivotIndex {
+			if i == n {
 				ands = append(ands, fmt.Sprintf("%s >= ?", scanColumns[i]))
 				args = append(args, minValue[i])
 			} else {
@@ -472,15 +448,6 @@ func (scanner *TableScanner) generateScanSqlAndArgs(
 			ors = append(ors, fmt.Sprintf("(%s)", strings.Join(ands, " and ")))
 		}
 		whereString = strings.Join(ors, " or ")
-		/*		var where []string
-				for i := 0; i <= pivotIndex-1; i++ {
-					where = append(where, fmt.Sprintf("%s = ?", scanColumns[i]))
-					args = append(args, minValue[i])
-				}
-
-				where = append(where, fmt.Sprintf("%s >= ?", scanColumns[pivotIndex]))
-				args = append(args, minValue[pivotIndex])
-		*/
 	}
 
 	orderByString := strings.Join(scanColumns, ", ")
