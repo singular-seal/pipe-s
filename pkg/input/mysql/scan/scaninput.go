@@ -453,19 +453,20 @@ func (scanner *TableScanner) generateScanSqlAndArgs(
 	if len(minValue) == 0 {
 		whereString = "1=1"
 	} else {
-		// generate conditions like '(col1>1) or (col1=1 and col2>15) or (col1=1 and col2=15 and col3>=33)' for pk (1,15,33)
+		// generate conditions like '(col1>1) or (col1=1 and col2>15) or (col1=1 and col2=15 and col3>=33)'
+		// for pk like (1,15,33)
 		var ors []string
 		for i := 0; i <= pivotIndex; i++ {
 			ands := make([]string, 0)
 			for j := 0; j < i; j++ {
-				ands = append(ands, "%s = ?", scanColumns[j])
+				ands = append(ands, fmt.Sprintf("%s = ?", scanColumns[j]))
 				args = append(args, minValue[j])
 			}
 			if i == pivotIndex {
-				ands = append(ands, "%s >= ?", scanColumns[i])
+				ands = append(ands, fmt.Sprintf("%s >= ?", scanColumns[i]))
 				args = append(args, minValue[i])
 			} else {
-				ands = append(ands, "%s > ?", scanColumns[i])
+				ands = append(ands, fmt.Sprintf("%s > ?", scanColumns[i]))
 				args = append(args, minValue[i])
 			}
 			ors = append(ors, fmt.Sprintf("(%s)", strings.Join(ands, " and ")))
