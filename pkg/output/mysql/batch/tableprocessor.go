@@ -67,7 +67,7 @@ func (p *TableProcessor) Run() {
 	// collect messages
 	go func() {
 		p.lastFlushTime = time.Now()
-		ticker := time.NewTicker(time.Millisecond * time.Duration(p.output.config.FlushIntervalMS/10+1))
+		ticker := utils.IntervalCheckTicker(p.output.config.FlushIntervalMS)
 		for {
 			select {
 			case <-p.stopContext.Done():

@@ -53,13 +53,13 @@ type MysqlBatchOutputConfig struct {
 func NewMysqlBatchOutput() *MysqlBatchOutput {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 
-	s := &MysqlBatchOutput{
+	output := &MysqlBatchOutput{
 		BaseOutput:      core.NewBaseOutput(),
 		tableProcessors: make(map[string][]*TableProcessor),
 		stopWaitContext: ctx,
 		stopCancel:      cancelFunc,
 	}
-	return s
+	return output
 }
 
 func (o *MysqlBatchOutput) Start() (err error) {
@@ -146,7 +146,7 @@ func getPKValue(event *core.DBChangeEvent, ts *core.Table) []interface{} {
 }
 
 func (o *MysqlBatchOutput) getTableProcessors(event *core.DBChangeEvent) []*TableProcessor {
-	ftn := event.Database + "." + event.Table
+	ftn := utils.FullTableName(event.Database, event.Table)
 	processors, ok := o.tableProcessors[ftn]
 	if ok {
 		return processors

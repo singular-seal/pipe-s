@@ -311,3 +311,7 @@ func GetColumnTypes(db string, table string, cols []string, conn *sql.DB) ([]*sq
 
 	return rows.ColumnTypes()
 }
+
+func FullTableName(db string, table string) string {
+	return db + "." + table
+}

@@ -414,7 +414,6 @@ func getPKValue(row []interface{}, table *core.Table) []interface{} {
 	return r
 }
 
-// pivotIndex is an index in scanColumns for where condition generation
 func (scanner *TableScanner) generateScanSqlAndArgs(
 	table *core.Table,
 	scanColumns []string,
@@ -428,26 +427,10 @@ func (scanner *TableScanner) generateScanSqlAndArgs(
 	if len(minValue) == 0 {
 		whereString = "1=1"
 	} else {
-		// generate conditions like '(col1>1) or (col1=1 and col2>15) or (col1=1 and col2=15 and col3>=33)'
-		// for pk like (1,15,33)
-		var ors []string
-		n := len(scanColumns) - 1
-		for i := 0; i <= n; i++ {
-			ands := make([]string, 0)
-			for j := 0; j < i; j++ {
-				ands = append(ands, fmt.Sprintf("%s = ?", scanColumns[j]))
-				args = append(args, minValue[j])
-			}
-			if i == n {
-				ands = append(ands, fmt.Sprintf("%s >= ?", scanColumns[i]))
-				args = append(args, minValue[i])
-			} else {
-				ands = append(ands, fmt.Sprintf("%s > ?", scanColumns[i]))
-				args = append(args, minValue[i])
-			}
-			ors = append(ors, fmt.Sprintf("(%s)", strings.Join(ands, " and ")))
-		}
-		whereString = strings.Join(ors, " or ")
+		colStr := fmt.Sprintf("(%s)", strings.Join(scanColumns, ","))
+		quoteStr := fmt.Sprintf("(%s)", strings.Join(strings.Split(strings.Repeat("?", len(scanColumns)), ""), ","))
+		whereString = fmt.Sprintf("%s>=%s", colStr, quoteStr)
+		args = append(args, minValue...)
 	}
 
 	orderByString := strings.Join(scanColumns, ", ")
