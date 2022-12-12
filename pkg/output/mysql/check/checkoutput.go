@@ -3,10 +3,12 @@ package check
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"github.com/singular-seal/pipe-s/pkg/core"
 	"github.com/singular-seal/pipe-s/pkg/log"
 	"github.com/singular-seal/pipe-s/pkg/schema"
 	"github.com/singular-seal/pipe-s/pkg/utils"
+	"strings"
 	"time"
 )
 
@@ -23,12 +25,12 @@ type MysqlCheckOutputConfig struct {
 	Password string
 
 	OutputFilePath string
-	// if we need skip checking for most recently updated rows, we can use UpdateTimeColumn and UpdateTimeSkipWindow
-	// to construct a query condition like 'UpdateTimeColumn<Now()-UpdateTimeSkipWindow'
-	UpdateTimeColumn     string
-	UpdateTimeSkipWindow int
-	TableBufferSize      int   // max messages buffered for each table
-	TableFlushIntervalMS int64 // max ms between each table buffer flushing
+	// if we need skip checking for most recently updated rows, we can use UpdateTimeColumn and UpdateTimeSkipSeconds
+	// to construct a query condition like 'UpdateTimeColumn<Now()-UpdateTimeSkipSeconds'
+	UpdateTimeColumn      string
+	UpdateTimeSkipSeconds int64
+	TableBufferSize       int   // max messages buffered for each table
+	TableFlushIntervalMS  int64 // max ms between each table buffer flushing
 }
 
 type MysqlCheckOutput struct {
@@ -136,6 +138,37 @@ func (p *TableProcessor) Flush() {
 
 func (p *TableProcessor) check(messages []*core.Message) error {
 	return nil
+}
+
+func generateSqlAndArgs(db string, table string, selCols []string, pkCols []string, pkValues [][]interface{}) (string, []interface{}) {
+	sqlPrefix := fmt.Sprintf("select %s from %s.%s where (%s) in", strings.Join(selCols, ","), db, table,
+		strings.Join(pkCols, ","))
+
+	batchPlaceHolders := make([]string, 0)
+	batchArgs := make([]interface{}, 0)
+	for _, pkValue := range pkValues {
+		phs := make([]string, 0)
+		for _, v := range pkValue {
+			phs = append(phs, "?")
+			batchArgs = append(batchArgs, v)
+		}
+		batchPlaceHolders = append(batchPlaceHolders, fmt.Sprintf("%s", strings.Join(phs, ",")))
+	}
+	s := []string{sqlPrefix, fmt.Sprintf("(%s)", strings.Join(batchPlaceHolders, ","))}
+	return strings.Join(s, " "), batchArgs
+}
+
+func getPKValues(pkCols []string, messages []*core.Message) [][]interface{} {
+	result := make([][]interface{}, 0)
+	for _, msg := range messages {
+		event := msg.Data.(*core.DBChangeEvent)
+		pk := make([]interface{}, 0)
+		for _, col := range pkCols {
+			pk = append(pk, event.GetRow()[col])
+		}
+		result = append(result, pk)
+	}
+	return result
 }
 
 func (p *TableProcessor) Process(m *core.Message) {
