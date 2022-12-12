@@ -163,3 +163,11 @@ func (e *DBChangeEvent) GetRow() map[string]interface{} {
 	}
 	return e.NewRow
 }
+
+func (e *DBChangeEvent) GetColumns() []string {
+	result := make([]string, 0)
+	for s, _ := range e.GetRow() {
+		result = append(result, s)
+	}
+	return result
+}

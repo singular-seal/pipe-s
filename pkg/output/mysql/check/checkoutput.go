@@ -76,7 +76,9 @@ func (o *MysqlCheckOutput) Configure(config core.StringMap) (err error) {
 type TableProcessor struct {
 	messages      chan *core.Message
 	output        *MysqlCheckOutput
-	table         string
+	tableSchema   *core.Table
+	fullTableName string
+	columnTypeMap map[string]*sql.ColumnType
 	flushSig      chan bool
 	lastFlushTime int64
 	conn          *sql.DB
@@ -84,17 +86,32 @@ type TableProcessor struct {
 	logger        *log.Logger
 }
 
-func NewTableProcessor(table string, output *MysqlCheckOutput) *TableProcessor {
-	proc := &TableProcessor{
-		output:      output,
-		table:       table,
-		messages:    make(chan *core.Message, output.config.TableBufferSize),
-		flushSig:    make(chan bool),
-		conn:        output.conn,
-		stopContext: output.stopWaitContext,
-		logger:      output.GetLogger(),
+func NewTableProcessor(db string, table string, output *MysqlCheckOutput) (*TableProcessor, error) {
+	ts, err := output.schemaStore.GetTable(db, table)
+	if err != nil {
+		return nil, err
 	}
-	return proc
+	columnTypes, err := utils.GetColumnTypes(db, table, ts.ColumnNames(), output.conn)
+	if err != nil {
+		return nil, err
+	}
+	typeMap := make(map[string]*sql.ColumnType)
+	for i, col := range ts.ColumnNames() {
+		typeMap[col] = columnTypes[i]
+	}
+
+	proc := &TableProcessor{
+		output:        output,
+		tableSchema:   ts,
+		columnTypeMap: typeMap,
+		fullTableName: utils.FullTableName(db, table),
+		messages:      make(chan *core.Message, output.config.TableBufferSize),
+		flushSig:      make(chan bool),
+		conn:          output.conn,
+		stopContext:   output.stopWaitContext,
+		logger:        output.GetLogger(),
+	}
+	return proc, nil
 }
 
 func (p *TableProcessor) Run() {
@@ -105,7 +122,7 @@ func (p *TableProcessor) Run() {
 		for {
 			select {
 			case <-p.stopContext.Done():
-				p.logger.Info("processor exit", log.String("table", p.table))
+				p.logger.Info("processor exit", log.String("fullTableName", p.fullTableName))
 				return
 			case <-ticker.C:
 				if time.Now().UnixNano()/1e6-p.lastFlushTime > p.output.config.TableFlushIntervalMS {
@@ -137,6 +154,10 @@ func (p *TableProcessor) Flush() {
 }
 
 func (p *TableProcessor) check(messages []*core.Message) error {
+	selCols := messages[0].Data.(*core.DBChangeEvent).GetColumns()
+	pkCols := p.tableSchema.PKColumnNames()
+	sqlString, args := generateSqlAndArgs(p.tableSchema.DBName, p.tableSchema.TableName, pkCols, selCols, getPKValues(pkCols, messages))
+
 	return nil
 }
 
@@ -184,7 +205,11 @@ func (o *MysqlCheckOutput) Process(m *core.Message) {
 	p, ok := o.tableProcessors[ft]
 
 	if !ok {
-		p = NewTableProcessor(ft, o)
+		p, err := NewTableProcessor(dbChange.Database, dbChange.Table, o)
+		if err != nil {
+			o.GetInput().Ack(m, err)
+			return
+		}
 		p.Run()
 	}
 	p.Process(m)
