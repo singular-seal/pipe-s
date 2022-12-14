@@ -157,8 +157,51 @@ func (p *TableProcessor) check(messages []*core.Message) error {
 	selCols := messages[0].Data.(*core.DBChangeEvent).GetColumns()
 	pkCols := p.tableSchema.PKColumnNames()
 	sqlString, args := generateSqlAndArgs(p.tableSchema.DBName, p.tableSchema.TableName, pkCols, selCols, getPKValues(pkCols, messages))
+	target, err := p.executeSelect(sqlString, args, selCols)
+	if err != nil {
+		return err
+	}
 
 	return nil
+}
+
+func (p *TableProcessor) executeSelect(sqlString string, args []interface{}, selCols []string) ([]map[string]interface{}, error) {
+	// execute
+	rows, err := p.conn.Query(sqlString, args...)
+	if err != nil {
+		return nil, err
+	}
+	// put query result into placeholders
+	colTypes := make([]*sql.ColumnType, 0)
+	for _, col := range selCols {
+		colTypes = append(colTypes, p.columnTypeMap[col])
+	}
+	batchDataPointers := utils.NewBatchDataPointers(colTypes, len(args))
+
+	rowIdx := 0
+	for rows.Next() {
+		if batchDataPointers[rowIdx], err = utils.ScanRowsWithDataPointers(rows, colTypes, batchDataPointers[rowIdx]); err != nil {
+			return nil, err
+		}
+		rowIdx++
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	rows.Close()
+	// add column name to query result
+	result := make([]map[string]interface{}, 0)
+	// rowIdx is number of rows now
+	for i := 0; i < rowIdx; i++ {
+		rowKV := make(map[string]interface{})
+		values := utils.ReadDataFromPointers(batchDataPointers[i])
+		for idx, col := range selCols {
+			rowKV[col] = values[idx]
+		}
+		result = append(result, rowKV)
+	}
+	return result, nil
 }
 
 func generateSqlAndArgs(db string, table string, selCols []string, pkCols []string, pkValues [][]interface{}) (string, []interface{}) {
