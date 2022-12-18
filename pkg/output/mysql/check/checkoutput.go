@@ -17,6 +17,13 @@ const (
 	DefaultFlushBatchSize  = 500
 )
 
+const (
+	UpdateTimeTypeTime  = "time"
+	UpdateTimeTypeSec   = "sec"
+	UpdateTimeTypeMilli = "milli"
+	UpdateTimeTypeNano  = "nano"
+)
+
 type MysqlCheckOutputConfig struct {
 	ID       string
 	Host     string
@@ -27,7 +34,11 @@ type MysqlCheckOutputConfig struct {
 	OutputFilePath string
 	// if we need skip checking for most recently updated rows, we can use UpdateTimeColumn and UpdateTimeSkipSeconds
 	// to construct a query condition like 'UpdateTimeColumn<Now()-UpdateTimeSkipSeconds'
-	UpdateTimeColumn      string
+	// this function only works if the pk values are not modified in the pipeline because implementing a reverse pipeline
+	// operation is cumbersome
+	UpdateTimeColumn string
+	// can be time,sec(second),milli(milli second) and nano(nano second
+	UpdateTimeType        string
 	UpdateTimeSkipSeconds int64
 	TableBufferSize       int   // max messages buffered for each table
 	TableFlushIntervalMS  int64 // max ms between each table buffer flushing
@@ -66,9 +77,11 @@ func (o *MysqlCheckOutput) Configure(config core.StringMap) (err error) {
 	if o.config.TableFlushIntervalMS == 0 {
 		o.config.TableFlushIntervalMS = DefaultFlushIntervalMS
 	}
-
 	if o.config.TableBufferSize == 0 {
 		o.config.TableBufferSize = DefaultFlushBatchSize
+	}
+	if len(o.config.UpdateTimeType) == 0 {
+		o.config.UpdateTimeType = UpdateTimeTypeTime
 	}
 	return nil
 }
@@ -156,13 +169,211 @@ func (p *TableProcessor) Flush() {
 func (p *TableProcessor) check(messages []*core.Message) error {
 	selCols := messages[0].Data.(*core.DBChangeEvent).GetColumns()
 	pkCols := p.tableSchema.PKColumnNames()
-	sqlString, args := generateSqlAndArgs(p.tableSchema.DBName, p.tableSchema.TableName, pkCols, selCols, getPKValues(pkCols, messages))
+	sqlString, args := generateSelectSqlAndArgs(p.tableSchema.DBName, p.tableSchema.TableName, pkCols, selCols, getPKValues(pkCols, messages))
 	target, err := p.executeSelect(sqlString, args, selCols)
 	if err != nil {
 		return err
 	}
 
 	return nil
+}
+
+type checkOutputItem struct {
+	DBName      string
+	TableName   string
+	ErrorType   string
+	ExpectedRow map[string]interface{}
+	RealRow     map[string]interface{}
+}
+
+func toPKMap(data []map[string]interface{}, pkCols []string) map[interface{}]map[string]interface{} {
+	result := make(map[interface{}]map[string]interface{})
+	if len(pkCols) == 1 {
+		for _, v := range data {
+			result[v[pkCols[0]]] = v
+		}
+	} else {
+		for _, v := range data {
+			pk := make([]interface{}, 0)
+			for _, col := range pkCols {
+				pk = append(pk, v[col])
+			}
+			result[pkString(pk)] = v
+		}
+	}
+	return result
+}
+
+func pkString(values []interface{}) string {
+	return fmt.Sprint(values...)
+}
+
+// pkValue returns a string composed of all values of pk columns for composite pk
+func pkValue(data map[string]interface{}, pkCols []string) interface{} {
+	if len(pkCols) == 1 {
+		return data[pkCols[0]]
+	} else {
+		pks := make([]interface{}, 0)
+		for _, col := range pkCols {
+			pks = append(pks, data[col])
+		}
+		return pkString(pks)
+	}
+}
+
+func (p *TableProcessor) checkData(sourceMessages []*core.Message, targetData []map[string]interface{},
+	pkColumns []string) (diffItems []*checkOutputItem, err error) {
+
+	misses := make([]*core.Message, 0)
+	diffs := make([]*core.Message, 0)
+	// find diffs
+	targetPKMap := toPKMap(targetData, pkColumns)
+	for _, message := range sourceMessages {
+		event := message.Data.(*core.DBChangeEvent)
+		targetRecord, ok := targetPKMap[pkValue(event.GetRow(), pkColumns)]
+		if !ok {
+			misses = append(misses, message)
+			continue
+		}
+		if hasDiff(event.GetRow(), targetRecord) {
+			diffs = append(diffs, message)
+		}
+	}
+
+	if len(p.output.config.UpdateTimeColumn) > 0 {
+		misses, err = p.recheckMissingRecords(misses)
+		if err != nil {
+			return nil, err
+		}
+		diffs, err = p.recheckDifferentRecords(diffs)
+		if err != nil {
+			return nil, err
+		}
+	}
+	
+	for _, each := range misses {
+		event := each.Data.(*core.SQLCommand)
+		item := &checkOutputItem{
+			DBName:      msg0.Database,
+			TableName:   msg0.Table,
+			ErrorType:   DBCheckErrorTypeRowMiss,
+			ExpectedRow: event.Columns,
+			RealRow:     nil,
+		}
+		result = append(result, item)
+	}
+	for _, each := range diffs {
+		event := each.Data.(*core.SQLCommand)
+		pkv := event.Columns[pkColumns]
+		targetRecord, _ := targetPKMap[pkv]
+
+		item := &checkOutputItem{
+			DBName:      msg0.Database,
+			TableName:   msg0.Table,
+			ErrorType:   DBCheckErrorTypeRowDiff,
+			ExpectedRow: event.Columns,
+			RealRow:     targetRecord,
+		}
+		result = append(result, item)
+	}
+}
+
+func (p *TableProcessor) recheckMissingRecords(messages []*core.Message) ([]*core.Message, error) {
+	if len(messages) == 0 {
+		return messages, nil
+	}
+	destPK := p.tableSchema.PKColumnNames()
+	srcTable, ok := messages[0].GetTableSchema()
+	if !ok {
+		return nil, fmt.Errorf("no schema:%s", messages[0].Header.ID)
+	}
+	srcPK := srcTable.PKColumnNames()
+	// try to filter the records deleted from source db recently
+	sqlString, args := generateSelectSqlAndArgs(srcTable.DBName, srcTable.TableName, srcPK, srcPK, getPKValues(destPK, messages))
+	data, err := p.executeSelect(sqlString, args, srcPK)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]*core.Message, 0)
+	if len(data) == 0 {
+		return result, nil
+	}
+
+	srcPKMap := toPKMap(data, srcPK)
+	for _, msg := range messages {
+		event := msg.Data.(*core.DBChangeEvent)
+		if _, ok := srcPKMap[pkValue(event.GetRow(), destPK)]; ok {
+			result = append(result, msg)
+		}
+	}
+	return result, nil
+}
+
+func (p *TableProcessor) recheckDifferentRecords(messages []*core.Message) ([]*core.Message, error) {
+	if len(messages) == 0 {
+		return messages, nil
+	}
+	destPK := p.tableSchema.PKColumnNames()
+	srcTable, ok := messages[0].GetTableSchema()
+	if !ok {
+		return nil, fmt.Errorf("no schema:%s", messages[0].Header.ID)
+	}
+	srcPK := srcTable.PKColumnNames()
+	// try to filter the records deleted from source db recently
+	sqlString, args := generateSelectSqlAndArgs(srcTable.DBName, srcTable.TableName, srcPK, srcPK, getPKValues(destPK, messages))
+	w, arg := p.whereConditionForUpdateTime()
+	sqlString = fmt.Sprintf("%s and %s", sqlString, w)
+	args = append(args, arg)
+	data, err := p.executeSelect(sqlString, args, srcPK)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]*core.Message, 0)
+	if len(data) == 0 {
+		return result, nil
+	}
+	srcPKMap := toPKMap(data, srcPK)
+	for _, msg := range messages {
+		event := msg.Data.(*core.DBChangeEvent)
+		if _, ok := srcPKMap[pkValue(event.GetRow(), destPK)]; ok {
+			result = append(result, msg)
+		}
+	}
+	return result, nil
+}
+
+func (p *TableProcessor) whereConditionForUpdateTime() (sql string, v interface{}) {
+	sql = fmt.Sprintf("%s<?", p.output.config.UpdateTimeColumn)
+	switch p.output.config.UpdateTimeType {
+	case UpdateTimeTypeSec:
+		v = time.Now().Add(time.Second * time.Duration(-p.output.config.UpdateTimeSkipSeconds)).Unix()
+	case UpdateTimeTypeMilli:
+		v = time.Now().Add(time.Second * time.Duration(-p.output.config.UpdateTimeSkipSeconds)).UnixMilli()
+	case UpdateTimeTypeNano:
+		v = time.Now().Add(time.Second * time.Duration(-p.output.config.UpdateTimeSkipSeconds)).UnixNano()
+	default:
+		v = time.Now().Add(time.Second * time.Duration(-p.output.config.UpdateTimeSkipSeconds))
+	}
+	return
+}
+
+func hasDiff(source map[string]interface{}, target map[string]interface{}) bool {
+	for k, v := range source {
+		_, ok := v.(sql.RawBytes)
+		if ok {
+			continue
+		}
+		_, ok = target[k].(sql.RawBytes)
+		if ok {
+			continue
+		}
+
+		if v != target[k] {
+			return true
+		}
+	}
+	return false
 }
 
 func (p *TableProcessor) executeSelect(sqlString string, args []interface{}, selCols []string) ([]map[string]interface{}, error) {
@@ -204,7 +415,7 @@ func (p *TableProcessor) executeSelect(sqlString string, args []interface{}, sel
 	return result, nil
 }
 
-func generateSqlAndArgs(db string, table string, selCols []string, pkCols []string, pkValues [][]interface{}) (string, []interface{}) {
+func generateSelectSqlAndArgs(db string, table string, selCols []string, pkCols []string, pkValues [][]interface{}) (string, []interface{}) {
 	sqlPrefix := fmt.Sprintf("select %s from %s.%s where (%s) in", strings.Join(selCols, ","), db, table,
 		strings.Join(pkCols, ","))
 
