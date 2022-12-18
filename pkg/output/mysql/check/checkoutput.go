@@ -8,7 +8,9 @@ import (
 	"github.com/singular-seal/pipe-s/pkg/log"
 	"github.com/singular-seal/pipe-s/pkg/schema"
 	"github.com/singular-seal/pipe-s/pkg/utils"
+	"os"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -22,6 +24,11 @@ const (
 	UpdateTimeTypeSec   = "sec"
 	UpdateTimeTypeMilli = "milli"
 	UpdateTimeTypeNano  = "nano"
+)
+
+const (
+	ErrorTypeRowMiss = "row_miss"
+	ErrorTypeRowDiff = "row_diff"
 )
 
 type MysqlCheckOutputConfig struct {
@@ -51,8 +58,9 @@ type MysqlCheckOutput struct {
 	conn            *sql.DB
 	schemaStore     schema.SchemaStore // the schema store to load table schemas
 
-	stopWaitContext context.Context
-	stopCancel      context.CancelFunc
+	resultReportingLock sync.Mutex
+	stopWaitContext     context.Context
+	stopCancel          context.CancelFunc
 }
 
 func NewMysqlCheckOutput() *MysqlCheckOutput {
@@ -174,7 +182,33 @@ func (p *TableProcessor) check(messages []*core.Message) error {
 	if err != nil {
 		return err
 	}
+	diffItems, err := p.checkData(messages, target, pkCols)
+	if err != nil {
+		return err
+	}
+	if len(diffItems) > 0 {
+		return p.reportResult(diffItems)
+	}
+	return nil
+}
 
+func (p *TableProcessor) reportResult(diffItems []*checkOutputItem) error {
+	p.output.resultReportingLock.Lock()
+	defer p.output.resultReportingLock.Unlock()
+
+	if len(p.output.config.OutputFilePath) > 0 {
+		f, err := os.OpenFile(p.output.config.OutputFilePath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+
+		for _, item := range diffItems {
+			if _, err = f.WriteString(item.String()); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
@@ -184,6 +218,21 @@ type checkOutputItem struct {
 	ErrorType   string
 	ExpectedRow map[string]interface{}
 	RealRow     map[string]interface{}
+}
+
+func (i *checkOutputItem) String() string {
+	t := fmt.Sprintf("err:%s db:%s table:%s ", i.ErrorType, i.DBName, i.TableName)
+	pairs := make([]string, 0)
+	for k, v := range i.ExpectedRow {
+		pairs = append(pairs, fmt.Sprintf("%s:%v", k, v))
+	}
+	e := fmt.Sprintf("expected:%s", strings.Join(pairs, " "))
+	pairs = make([]string, 0)
+	for k, v := range i.RealRow {
+		pairs = append(pairs, fmt.Sprintf("%s:%v", k, v))
+	}
+	r := fmt.Sprintf("real:%s", strings.Join(pairs, " "))
+	return fmt.Sprintf("%s - %s %s", t, e, r)
 }
 
 func toPKMap(data []map[string]interface{}, pkCols []string) map[interface{}]map[string]interface{} {
@@ -239,7 +288,7 @@ func (p *TableProcessor) checkData(sourceMessages []*core.Message, targetData []
 			diffs = append(diffs, message)
 		}
 	}
-
+	// double check to exclude false diff
 	if len(p.output.config.UpdateTimeColumn) > 0 {
 		misses, err = p.recheckMissingRecords(misses)
 		if err != nil {
@@ -250,32 +299,31 @@ func (p *TableProcessor) checkData(sourceMessages []*core.Message, targetData []
 			return nil, err
 		}
 	}
-	
+	// check result
 	for _, each := range misses {
-		event := each.Data.(*core.SQLCommand)
+		event := each.Data.(*core.DBChangeEvent)
 		item := &checkOutputItem{
-			DBName:      msg0.Database,
-			TableName:   msg0.Table,
-			ErrorType:   DBCheckErrorTypeRowMiss,
-			ExpectedRow: event.Columns,
+			DBName:      event.Database,
+			TableName:   event.Table,
+			ErrorType:   ErrorTypeRowMiss,
+			ExpectedRow: event.GetRow(),
 			RealRow:     nil,
 		}
-		result = append(result, item)
+		diffItems = append(diffItems, item)
 	}
 	for _, each := range diffs {
-		event := each.Data.(*core.SQLCommand)
-		pkv := event.Columns[pkColumns]
-		targetRecord, _ := targetPKMap[pkv]
-
+		event := each.Data.(*core.DBChangeEvent)
+		targetRecord, _ := targetPKMap[pkValue(event.GetRow(), pkColumns)]
 		item := &checkOutputItem{
-			DBName:      msg0.Database,
-			TableName:   msg0.Table,
-			ErrorType:   DBCheckErrorTypeRowDiff,
-			ExpectedRow: event.Columns,
+			DBName:      event.Database,
+			TableName:   event.Table,
+			ErrorType:   ErrorTypeRowDiff,
+			ExpectedRow: event.GetRow(),
 			RealRow:     targetRecord,
 		}
-		result = append(result, item)
+		diffItems = append(diffItems, item)
 	}
+	return
 }
 
 func (p *TableProcessor) recheckMissingRecords(messages []*core.Message) ([]*core.Message, error) {
