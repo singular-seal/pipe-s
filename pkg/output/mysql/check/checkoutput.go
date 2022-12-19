@@ -59,8 +59,10 @@ type MysqlCheckOutput struct {
 	schemaStore     schema.SchemaStore // the schema store to load table schemas
 
 	resultReportingLock sync.Mutex
-	stopWaitContext     context.Context
-	stopCancel          context.CancelFunc
+	resultReportingFile *os.File
+
+	stopWaitContext context.Context
+	stopCancel      context.CancelFunc
 }
 
 func NewMysqlCheckOutput() *MysqlCheckOutput {
@@ -73,6 +75,27 @@ func NewMysqlCheckOutput() *MysqlCheckOutput {
 		stopCancel:      cancelFunc,
 	}
 	return output
+}
+
+func (o *MysqlCheckOutput) Start() (err error) {
+	if o.conn, err = utils.CreateMysqlClient(o.config.Host, o.config.Port, o.config.User, o.config.Password); err != nil {
+		return
+	}
+	o.schemaStore = schema.NewSimpleSchemaStoreWithClient(o.conn)
+	o.schemaStore.SetLogger(o.GetLogger())
+	if len(o.config.OutputFilePath) > 0 {
+		o.resultReportingFile, err = os.OpenFile(o.config.OutputFilePath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+	}
+	return
+}
+
+func (o *MysqlCheckOutput) Stop() {
+	o.stopCancel()
+	o.schemaStore.Close()
+	if err := utils.CloseMysqlClient(o.conn); err != nil {
+		o.GetLogger().Error("MysqlBatchOutput failed close db connection")
+	}
+	o.resultReportingFile.Close()
 }
 
 func (o *MysqlCheckOutput) Configure(config core.StringMap) (err error) {
@@ -91,7 +114,8 @@ func (o *MysqlCheckOutput) Configure(config core.StringMap) (err error) {
 	if len(o.config.UpdateTimeType) == 0 {
 		o.config.UpdateTimeType = UpdateTimeTypeTime
 	}
-	return nil
+
+	return
 }
 
 type TableProcessor struct {
@@ -197,14 +221,8 @@ func (p *TableProcessor) reportResult(diffItems []*checkOutputItem) error {
 	defer p.output.resultReportingLock.Unlock()
 
 	if len(p.output.config.OutputFilePath) > 0 {
-		f, err := os.OpenFile(p.output.config.OutputFilePath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-
 		for _, item := range diffItems {
-			if _, err = f.WriteString(item.String()); err != nil {
+			if _, err := p.output.resultReportingFile.WriteString(item.String()); err != nil {
 				return err
 			}
 		}
