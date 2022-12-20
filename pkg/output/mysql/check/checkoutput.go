@@ -38,7 +38,7 @@ type MysqlCheckOutputConfig struct {
 	User     string
 	Password string
 
-	OutputFilePath string
+	ResultFilePath string
 	// if we need skip checking for most recently updated rows, we can use UpdateTimeColumn and UpdateTimeSkipSeconds
 	// to construct a query condition like 'UpdateTimeColumn<Now()-UpdateTimeSkipSeconds'
 	// this function only works if the pk values are not modified in the pipeline because implementing a reverse pipeline
@@ -58,8 +58,8 @@ type MysqlCheckOutput struct {
 	conn            *sql.DB
 	schemaStore     schema.SchemaStore // the schema store to load table schemas
 
-	resultReportingLock sync.Mutex
-	resultReportingFile *os.File
+	resultLock sync.Mutex
+	resultFile *os.File
 
 	stopWaitContext context.Context
 	stopCancel      context.CancelFunc
@@ -83,8 +83,8 @@ func (o *MysqlCheckOutput) Start() (err error) {
 	}
 	o.schemaStore = schema.NewSimpleSchemaStoreWithClient(o.conn)
 	o.schemaStore.SetLogger(o.GetLogger())
-	if len(o.config.OutputFilePath) > 0 {
-		o.resultReportingFile, err = os.OpenFile(o.config.OutputFilePath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+	if len(o.config.ResultFilePath) > 0 {
+		o.resultFile, err = os.OpenFile(o.config.ResultFilePath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
 	}
 	return
 }
@@ -95,7 +95,7 @@ func (o *MysqlCheckOutput) Stop() {
 	if err := utils.CloseMysqlClient(o.conn); err != nil {
 		o.GetLogger().Error("MysqlBatchOutput failed close db connection")
 	}
-	o.resultReportingFile.Close()
+	o.resultFile.Close()
 }
 
 func (o *MysqlCheckOutput) Configure(config core.StringMap) (err error) {
@@ -201,7 +201,7 @@ func (p *TableProcessor) Flush() {
 func (p *TableProcessor) check(messages []*core.Message) error {
 	selCols := messages[0].Data.(*core.DBChangeEvent).GetColumns()
 	pkCols := p.tableSchema.PKColumnNames()
-	sqlString, args := generateSelectSqlAndArgs(p.tableSchema.DBName, p.tableSchema.TableName, pkCols, selCols, getPKValues(pkCols, messages))
+	sqlString, args := generateSelectSqlAndArgs(p.tableSchema.DBName, p.tableSchema.TableName, selCols, pkCols, getPKValues(pkCols, messages))
 	target, err := p.executeSelect(sqlString, args, selCols)
 	if err != nil {
 		return err
@@ -217,12 +217,12 @@ func (p *TableProcessor) check(messages []*core.Message) error {
 }
 
 func (p *TableProcessor) reportResult(diffItems []*checkOutputItem) error {
-	p.output.resultReportingLock.Lock()
-	defer p.output.resultReportingLock.Unlock()
+	p.output.resultLock.Lock()
+	defer p.output.resultLock.Unlock()
 
-	if len(p.output.config.OutputFilePath) > 0 {
+	if len(p.output.config.ResultFilePath) > 0 {
 		for _, item := range diffItems {
-			if _, err := p.output.resultReportingFile.WriteString(item.String()); err != nil {
+			if _, err := p.output.resultFile.WriteString(item.String()); err != nil {
 				return err
 			}
 		}
@@ -493,7 +493,7 @@ func generateSelectSqlAndArgs(db string, table string, selCols []string, pkCols 
 			phs = append(phs, "?")
 			batchArgs = append(batchArgs, v)
 		}
-		batchPlaceHolders = append(batchPlaceHolders, fmt.Sprintf("%s", strings.Join(phs, ",")))
+		batchPlaceHolders = append(batchPlaceHolders, fmt.Sprintf("(%s)", strings.Join(phs, ",")))
 	}
 	s := []string{sqlPrefix, fmt.Sprintf("(%s)", strings.Join(batchPlaceHolders, ","))}
 	return strings.Join(s, " "), batchArgs
@@ -525,11 +525,13 @@ func (o *MysqlCheckOutput) Process(m *core.Message) {
 	p, ok := o.tableProcessors[ft]
 
 	if !ok {
-		p, err := NewTableProcessor(dbChange.Database, dbChange.Table, o)
+		var err error
+		p, err = NewTableProcessor(dbChange.Database, dbChange.Table, o)
 		if err != nil {
 			o.GetInput().Ack(m, err)
 			return
 		}
+		o.tableProcessors[ft] = p
 		p.Run()
 	}
 	p.Process(m)

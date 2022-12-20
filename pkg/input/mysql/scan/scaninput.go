@@ -235,7 +235,7 @@ func (in *MysqlScanInput) Ack(msg *core.Message, err error) {
 
 func (in *MysqlScanInput) GetState() ([]byte, bool) {
 	if in.lastAckError.Load() != nil {
-		in.GetLogger().Error("error found", log.Error(in.lastAckError.Load().(error)))
+		in.GetLogger().Error("GetState with error", log.Error(in.lastAckError.Load().(error)))
 		return nil, true
 	}
 
