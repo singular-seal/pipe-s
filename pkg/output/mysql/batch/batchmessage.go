@@ -61,14 +61,12 @@ func mergeInsert(oldEvent *MergedMessage, newEvent *MessageInfo) {
 	// not in db before, so we can just use make a entire new event
 	if !oldEvent.inDB {
 		oldEvent.mergedEvent = newEvent.dbChange
-		oldEvent.originals = append(oldEvent.originals, newEvent.message)
 		return
 	}
 
 	// need delete first then insert so we use replace
 	oldEvent.mergedEvent.Operation = core.DBReplace
 	oldEvent.mergedEvent.NewRow = newEvent.dbChange.NewRow
-	oldEvent.originals = append(oldEvent.originals, newEvent.message)
 }
 
 // mergeUpdate for insert-update or update-update sequence
