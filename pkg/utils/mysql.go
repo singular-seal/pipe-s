@@ -315,3 +315,7 @@ func GetColumnTypes(db string, table string, cols []string, conn *sql.DB) ([]*sq
 func FullTableName(db string, table string) string {
 	return db + "." + table
 }
+
+func IsMultipleStatements(sqlString string) bool {
+	return strings.Contains(sqlString, ";")
+}

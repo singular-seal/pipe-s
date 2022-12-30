@@ -137,7 +137,7 @@ func (p *TableProcessor) executeSome(messages []*MergedMessage) error {
 	}
 	count, err := result.RowsAffected()
 	// this can happen in retry so just log it
-	if count < int64(len(messages)) {
+	if count < int64(len(messages)) && !utils.IsMultipleStatements(sqlString) {
 		p.logger.Warn("not all rows succeed", log.String("sql", sqlString),
 			log.Int64("succeed", count), log.Int("all", len(messages)))
 	}
