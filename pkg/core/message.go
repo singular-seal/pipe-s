@@ -74,10 +74,9 @@ const (
 
 // db operation types
 const (
-	DBInsert  = "insert"
-	DBUpdate  = "update"
-	DBDelete  = "delete"
-	DBReplace = "replace" // we generate replace event during processing
+	DBInsert = "insert"
+	DBUpdate = "update"
+	DBDelete = "delete"
 )
 
 // MysqlBinlogPosition describes position in mysql binlog.

@@ -162,7 +162,7 @@ func genKeyValueSqlAndArgs(columns map[string]interface{}, separator string) (st
 	conditions := make([]string, 0)
 	for k, v := range columns {
 		args = append(args, v)
-		conditions = append(conditions, fmt.Sprintf("`%s`=?", k))
+		conditions = append(conditions, fmt.Sprintf("%s=?", k))
 	}
 	return strings.Join(conditions, separator), args
 }
@@ -175,8 +175,12 @@ func genKeyValueSqlAndArgsExclude(columns map[string]interface{}, exclude map[st
 		if _, ok := exclude[k]; ok {
 			continue
 		}
-		args = append(args, v)
-		conditions = append(conditions, fmt.Sprintf("`%s`=?", k))
+		if v == nil {
+			conditions = append(conditions, fmt.Sprintf("%s=default(%s)", k, k))
+		} else {
+			args = append(args, v)
+			conditions = append(conditions, fmt.Sprintf("%s=?", k))
+		}
 	}
 	return strings.Join(conditions, separator), args
 }

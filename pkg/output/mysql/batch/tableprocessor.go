@@ -147,13 +147,11 @@ func (p *TableProcessor) executeSome(messages []*MergedMessage) error {
 func (p *TableProcessor) generateSql(messages []*MergedMessage) (sqlString string, sqlArgs []interface{}) {
 	switch messages[0].mergedEvent.Operation {
 	case core.DBInsert:
-		return p.generateInsertOrReplaceSql(messages)
+		return p.generateInsertSql(messages)
 	case core.DBUpdate:
 		return p.generateUpdateSql(messages)
 	case core.DBDelete:
 		return p.generateDeleteSql(messages)
-	case core.DBReplace:
-		return p.generateInsertOrReplaceSql(messages)
 	}
 	return "", nil
 }
@@ -166,17 +164,11 @@ func columnValues(event *core.DBChangeEvent, columns []string) []interface{} {
 	return result
 }
 
-func (p *TableProcessor) generateInsertOrReplaceSql(messages []*MergedMessage) (sqlString string, sqlArgs []interface{}) {
+func (p *TableProcessor) generateInsertSql(messages []*MergedMessage) (sqlString string, sqlArgs []interface{}) {
 	msg0 := messages[0]
 	columns := msg0.originals[0].ColumnNames()
-	var sqlPrefix string
-	if msg0.mergedEvent.Operation == core.DBReplace {
-		sqlPrefix = fmt.Sprintf("replace into %s.%s (%s) values", msg0.mergedEvent.Database,
-			msg0.mergedEvent.Table, strings.Join(utils.QuoteColumns(columns), ","))
-	} else {
-		sqlPrefix = fmt.Sprintf("insert ignore into %s.%s (%s) values", msg0.mergedEvent.Database,
-			msg0.mergedEvent.Table, strings.Join(utils.QuoteColumns(columns), ","))
-	}
+	sqlPrefix := fmt.Sprintf("insert ignore into %s.%s (%s) values", msg0.mergedEvent.Database,
+		msg0.mergedEvent.Table, strings.Join(utils.QuoteColumns(columns), ","))
 	allPlaceHolders := make([]string, 0)
 	allArgs := make([]interface{}, 0)
 

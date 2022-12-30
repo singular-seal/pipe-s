@@ -64,9 +64,18 @@ func mergeInsert(oldEvent *MergedMessage, newEvent *MessageInfo) {
 		return
 	}
 
-	// need delete first then insert so we use replace
-	oldEvent.mergedEvent.Operation = core.DBReplace
-	oldEvent.mergedEvent.NewRow = newEvent.dbChange.NewRow
+	// change to update
+	oldEvent.mergedEvent.Operation = core.DBUpdate
+	oldEvent.mergedEvent.NewRow = make(map[string]interface{})
+	for col := range oldEvent.mergedEvent.OldRow {
+		value, ok := newEvent.dbChange.NewRow[col]
+		if ok {
+			oldEvent.mergedEvent.NewRow[col] = value
+		} else {
+			// use nil to represent default value
+			oldEvent.mergedEvent.NewRow[col] = nil
+		}
+	}
 }
 
 // mergeUpdate for insert-update or update-update sequence
@@ -78,7 +87,7 @@ func mergeUpdate(oldEvent *core.DBChangeEvent, newEvent *core.DBChangeEvent) {
 
 // splitByOperation split messages to insert, updates, deletes and replaces batches
 func (bm *BatchMessage) splitByOperation() (batches [][]*MergedMessage) {
-	inserts, updates, deletes, replaces := make([]*MergedMessage, 0), make([]*MergedMessage, 0), make([]*MergedMessage, 0), make([]*MergedMessage, 0)
+	inserts, updates, deletes := make([]*MergedMessage, 0), make([]*MergedMessage, 0), make([]*MergedMessage, 0)
 	for _, each := range bm.mergedMessages {
 		switch each.mergedEvent.Operation {
 		case core.DBInsert:
@@ -87,10 +96,8 @@ func (bm *BatchMessage) splitByOperation() (batches [][]*MergedMessage) {
 			updates = append(updates, each)
 		case core.DBDelete:
 			deletes = append(deletes, each)
-		case core.DBReplace:
-			replaces = append(replaces, each)
 		}
 	}
-	batches = [][]*MergedMessage{inserts, updates, deletes, replaces}
+	batches = [][]*MergedMessage{inserts, updates, deletes}
 	return
 }
