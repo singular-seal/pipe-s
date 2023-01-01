@@ -197,11 +197,18 @@ func (p *TableProcessor) generateUpdateSql(messages []*MergedMessage) (sqlString
 		keyColumns[i] = column.Name
 	}
 
+	if len(messages) > 1 {
+		batchSql = append(batchSql, "begin")
+	}
 	for _, message := range messages {
 		s, as := utils.GenerateSqlAndArgs(message.mergedEvent, keyColumns)
 		batchSql = append(batchSql, s)
 		sqlArgs = append(sqlArgs, as...)
 	}
+	if len(messages) > 1 {
+		batchSql = append(batchSql, "commit")
+	}
+
 	sqlString = strings.Join(batchSql, ";")
 	return
 }
