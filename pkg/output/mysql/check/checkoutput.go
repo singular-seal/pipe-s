@@ -222,7 +222,7 @@ func (p *TableProcessor) reportResult(diffItems []*checkOutputItem) error {
 
 	if len(p.output.config.ResultFilePath) > 0 {
 		for _, item := range diffItems {
-			if _, err := p.output.resultFile.WriteString(item.String()); err != nil {
+			if _, err := p.output.resultFile.WriteString(item.String() + "\n"); err != nil {
 				return err
 			}
 		}
