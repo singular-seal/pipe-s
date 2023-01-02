@@ -44,7 +44,7 @@ type MysqlCheckOutputConfig struct {
 	// this function only works if the pk values are not modified in the pipeline because implementing a reverse pipeline
 	// operation is cumbersome
 	UpdateTimeColumn string
-	// can be time,sec(second),milli(milli second) and nano(nano second
+	// can be time,sec(second),milli(milli second) and nano(nano second)
 	UpdateTimeType        string
 	UpdateTimeSkipSeconds int64
 	TableBufferSize       int   // max messages buffered for each table
