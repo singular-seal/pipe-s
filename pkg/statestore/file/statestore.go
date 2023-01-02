@@ -1,9 +1,11 @@
 package file
 
 import (
+	"errors"
 	"github.com/singular-seal/pipe-s/pkg/core"
 	"github.com/singular-seal/pipe-s/pkg/utils"
 	"io/ioutil"
+	"os"
 )
 
 const Perm = 0666
@@ -21,6 +23,11 @@ func NewFileStateStore() *FileStateStore {
 func (s *FileStateStore) Configure(config core.StringMap) (err error) {
 	if s.path, err = utils.GetStringFromConfig(config, "$.Path"); err != nil {
 		return
+	}
+	if _, err := os.Stat(s.path); errors.Is(err, os.ErrNotExist) {
+		if f, err := os.Create(s.path); err == nil {
+			f.Close()
+		}
 	}
 	return
 }
