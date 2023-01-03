@@ -26,10 +26,18 @@ function init_binlog() {
   return
 }
 
+function is_syncing() {
+    return
+}
+
 while getopts 'i' OPT; do
   case $OPT in
   i) init_binlog ;;
   esac
 done
+
+nohup $WORK_DIR/$BINARY --config $WORK_DIR/$CONFIG &
+
+
 
 echo "test done"
