@@ -88,7 +88,7 @@ func UpdateTaskBinlogDelay(positionTimestamp uint32) {
 		return
 	}
 	// avoid frequently calculate time
-	if MetricsInstance.eventCount%TaskDelayUpdateModDividend != 1 {
+	if MetricsInstance.eventCount%TaskDelayUpdateModDividend != 0 {
 		return
 	}
 
