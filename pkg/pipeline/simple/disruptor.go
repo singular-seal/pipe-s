@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/singular-seal/pipe-s/pkg/core"
 	"github.com/singular-seal/pipe-s/pkg/log"
+	"github.com/singular-seal/pipe-s/pkg/metrics"
 	"github.com/singular-seal/pipe-s/pkg/pipeline"
 	"github.com/singular-seal/pipe-s/pkg/utils"
 	"github.com/smartystreets-prototypes/go-disruptor"
@@ -59,6 +60,7 @@ func (c ProcessConsumer) Consume(lower, upper int64) {
 		if lower&c.concurrencyMask != c.num {
 			continue
 		}
+		metrics.AddEventCount()
 		event := c.pipeline.ringBuffer[lower&c.pipeline.bufferMask]
 		skip, err := c.pipeline.ApplyProcessors(event.msg)
 		if skip || err != nil {

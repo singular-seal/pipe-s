@@ -10,11 +10,13 @@ import (
 	"net/http"
 	"strings"
 	"sync/atomic"
+	"time"
 )
 
 const (
 	DefaultMetricsPort               = 9148
 	DefaultStatisticsIntervalSeconds = 10
+	TaskDelayUpdateModDividend       = 1024
 
 	TaskQPSGaugeName   = "task_qps"
 	TaskDelayGaugeName = "task_delay"
@@ -81,11 +83,16 @@ func (m *TaskMetrics) SetTaskDelay(delay float64) {
 	m.taskDelayGauge.WithLabelValues(m.labelValues...).Set(delay)
 }
 
-func SetTaskDelay(delay float64) {
+func UpdateTaskBinlogDelay(positionTimestamp uint32) {
 	if MetricsInstance == nil {
 		return
 	}
-	MetricsInstance.SetTaskDelay(delay)
+	// avoid frequently calculate time
+	if MetricsInstance.eventCount%TaskDelayUpdateModDividend != 1 {
+		return
+	}
+
+	MetricsInstance.SetTaskDelay(float64(time.Now().Unix() - int64(positionTimestamp)))
 }
 
 func (m *TaskMetrics) makeStatistics() {
@@ -105,6 +112,16 @@ func (m *TaskMetrics) Start() (err error) {
 		m.GetLogger().Info("starting metrics", log.Int("port", m.port))
 		http.Handle("/metrics", promhttp.Handler())
 		http.ListenAndServe(fmt.Sprintf(":%d", m.port), nil)
+	}()
+
+	go func() {
+		ticker := time.NewTicker(time.Second * time.Duration(DefaultStatisticsIntervalSeconds))
+		for {
+			select {
+			case <-ticker.C:
+				m.makeStatistics()
+			}
+		}
 	}()
 	return nil
 }

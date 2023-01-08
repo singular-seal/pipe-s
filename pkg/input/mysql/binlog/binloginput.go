@@ -11,6 +11,7 @@ import (
 	_ "github.com/pingcap/tidb/types/parser_driver"
 	"github.com/singular-seal/pipe-s/pkg/core"
 	"github.com/singular-seal/pipe-s/pkg/log"
+	"github.com/singular-seal/pipe-s/pkg/metrics"
 	"github.com/singular-seal/pipe-s/pkg/schema"
 	"github.com/singular-seal/pipe-s/pkg/utils"
 	"strconv"
@@ -301,6 +302,7 @@ func (c *EventConsumer) Handle(event *replication.BinlogEvent) (err error) {
 	c.currPos.ServerID = event.Header.ServerID
 	if event.Header.Timestamp > 0 {
 		c.currPos.Timestamp = event.Header.Timestamp
+		metrics.UpdateTaskBinlogDelay(event.Header.Timestamp)
 	}
 
 	err = nil
