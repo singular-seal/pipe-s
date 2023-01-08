@@ -6,6 +6,7 @@ import (
 	"github.com/singular-seal/pipe-s/pkg/builder"
 	"github.com/singular-seal/pipe-s/pkg/core"
 	"github.com/singular-seal/pipe-s/pkg/log"
+	"github.com/singular-seal/pipe-s/pkg/metrics"
 	"github.com/singular-seal/pipe-s/pkg/statestore"
 	"github.com/singular-seal/pipe-s/pkg/utils"
 	"io/ioutil"
@@ -165,11 +166,15 @@ func (t *DefaultTask) start() (err error) {
 }
 
 func (t *DefaultTask) Start() (err error) {
-	t.configureLog(t.config)
+	t.configureLog()
 	defer t.logger.Sync()
 
 	t.logger.Info("initializing task")
 	t.startPprof()
+	if err = metrics.InitTaskMetricsSingleton(t.config, t.logger); err != nil {
+		return
+	}
+
 	builder.InitComponentBuilder(t.logger)
 
 	if err = t.configure(); err != nil {
@@ -202,8 +207,8 @@ func (t *DefaultTask) loadInitState() (state []byte, err error) {
 	return
 }
 
-func (t *DefaultTask) configureLog(config core.StringMap) {
-	if logPath, _ := utils.GetStringFromConfig(config, "$.LogPath"); len(logPath) > 0 {
+func (t *DefaultTask) configureLog() {
+	if logPath, _ := utils.GetStringFromConfig(t.config, "$.LogPath"); len(logPath) > 0 {
 		for _, option := range log.DefaultOptions {
 			option.Filename = filepath.Join(logPath, option.Filename)
 		}
