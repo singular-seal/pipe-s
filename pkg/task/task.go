@@ -18,10 +18,8 @@ import (
 
 const (
 	// StateKey is default key in state store
-	StateKey = "state"
-
+	StateKey                   = "state"
 	DefaultSaveStateIntervalMS = 10000
-	DefaultPprofPort           = 7777
 )
 
 // Task is the runnable instance to do all ETL tasks.
@@ -106,9 +104,13 @@ func (t *DefaultTask) configure() (err error) {
 }
 
 func (t *DefaultTask) startPprof() {
+	port, err := utils.GetIntFromConfig(t.config, "$.PProfPort")
+	if err != nil || port == 0 {
+		return
+	}
 	go func() {
-		t.logger.Info("starting pprof", log.Int("port", DefaultPprofPort))
-		http.ListenAndServe(fmt.Sprintf(":%d", DefaultPprofPort), nil)
+		t.logger.Info("starting pprof", log.Int("port", port))
+		http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
 	}()
 }
 
