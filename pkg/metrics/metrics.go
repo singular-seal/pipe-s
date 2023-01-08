@@ -16,7 +16,7 @@ import (
 const (
 	DefaultMetricsPort               = 9148
 	DefaultStatisticsIntervalSeconds = 10
-	TaskDelayUpdateModDividend       = 1024
+	TaskDelayUpdateModMask           = 1023
 
 	TaskQPSGaugeName   = "task_qps"
 	TaskDelayGaugeName = "task_delay"
@@ -88,7 +88,7 @@ func UpdateTaskBinlogDelay(positionTimestamp uint32) {
 		return
 	}
 	// avoid frequently calculate time
-	if MetricsInstance.eventCount%TaskDelayUpdateModDividend != 0 {
+	if MetricsInstance.eventCount&TaskDelayUpdateModMask != 0 {
 		return
 	}
 
