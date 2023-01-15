@@ -10,11 +10,12 @@ TARGET_USER="root"
 TARGET_PASSWORD="root"
 DATABASE="pipes_test_db"
 SYS_BENCH_SCRIPT="/usr/share/sysbench/oltp_write_only.lua"
-
-WORK_DIR="~"
+# binary and config files need to be put in the same dir
+WORK_DIR="."
 BINARY="task"
 CONFIG="db_sync.json"
 STATE_FILE="state_store.data"
+METRICS_PORT=7778
 
 function init_binlog() {
   echo "begin init binlog"
@@ -27,7 +28,33 @@ function init_binlog() {
 }
 
 function is_syncing() {
-    return
+  qps=$(curl -s localhost:$METRICS_PORT/metrics | grep 'task_qps{' | awk '{print $NF}')
+  if [ "$qps" -gt "0" ]; then
+    return 1
+  fi
+  sleep 1
+  if [ "$qps" -gt "0" ]; then
+    return 1
+  else
+    return 0
+  fi
+  return
+}
+
+function wait_for_end() {
+  sleep 10
+  while true; do
+    is_syncing
+    if [ $? -ne 1 ]; then
+      return
+    fi
+    echo "syncing data ..."
+    sleep 10
+  done
+}
+
+function kill_sync_process() {
+  ps -ef | grep "$WORK_DIR/$CONFIG" | grep -v grep | awk '{print $2}' | xargs kill -9
 }
 
 while getopts 'i' OPT; do
@@ -36,8 +63,9 @@ while getopts 'i' OPT; do
   esac
 done
 
+cp "${STATE_FILE}.bak" $STATE_FILE
 nohup $WORK_DIR/$BINARY --config $WORK_DIR/$CONFIG &
-
-
+wait_for_end
+kill_sync_process
 
 echo "test done"
