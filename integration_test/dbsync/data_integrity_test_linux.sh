@@ -14,7 +14,12 @@ SYS_BENCH_SCRIPT="/usr/share/sysbench/oltp_write_only.lua"
 WORK_DIR="."
 BINARY="task"
 DB_SYNC_CONFIG="db_sync.json"
-STATE_FILE="state_store.data"
+DB_SYNC_STATE_FILE="state_store.data"
+
+DB_CHECK_CONFIG="db_check.json"
+DB_CHECK_STATE_FILE="db_check_state_store.data"
+DB_CHECK_RESULT_FILE="check_result.txt"
+
 TABLE_STRUCTURE_FILE="dump.sql"
 
 METRICS_PORT=7778
@@ -46,7 +51,7 @@ function is_syncing() {
 function init_target_db() {
   echo "init target db"
   mysql -h$TARGET_HOST -P$TARGET_PORT -u$TARGET_USER -p$TARGET_PASSWORD -Bse "drop database if exists $DATABASE;create database $DATABASE"
-  mysql -h$TARGET_HOST -P$TARGET_PORT -u$TARGET_USER -p$TARGET_PASSWORD $DATABASE < $TABLE_STRUCTURE_FILE
+  mysql -h$TARGET_HOST -P$TARGET_PORT -u$TARGET_USER -p$TARGET_PASSWORD $DATABASE <$TABLE_STRUCTURE_FILE
 }
 
 function wait_for_end() {
@@ -72,11 +77,14 @@ while getopts 'i' OPT; do
 done
 
 init_target_db
-cp "${STATE_FILE}.bak" $STATE_FILE
+cp "${DB_SYNC_STATE_FILE}.bak" $DB_SYNC_STATE_FILE
 nohup $WORK_DIR/$BINARY --config $WORK_DIR/$DB_SYNC_CONFIG &
 wait_for_end
 kill_sync_process
 
+echo "begin checking db"
+rm "$DB_DB_CHECK_STATE_FILE"
+$WORK_DIR/$BINARY --config $WORK_DIR/$DB_CHECK_CONFIG
 
 
-echo "test done"
+echo "all done"
