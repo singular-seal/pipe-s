@@ -13,8 +13,10 @@ SYS_BENCH_SCRIPT="/usr/share/sysbench/oltp_write_only.lua"
 # binary and config files need to be put in the same dir
 WORK_DIR="."
 BINARY="task"
-CONFIG="db_sync.json"
+DB_SYNC_CONFIG="db_sync.json"
 STATE_FILE="state_store.data"
+TABLE_STRUCTURE_FILE="dump.sql"
+
 METRICS_PORT=7778
 
 function init_binlog() {
@@ -41,6 +43,12 @@ function is_syncing() {
   return
 }
 
+function init_target_db() {
+  echo "init target db"
+  mysql -h$TARGET_HOST -P$TARGET_PORT -u$TARGET_USER -p$TARGET_PASSWORD -Bse "drop database if exists $DATABASE;create database $DATABASE"
+  mysql -h$TARGET_HOST -P$TARGET_PORT -u$TARGET_USER -p$TARGET_PASSWORD $DATABASE < $TABLE_STRUCTURE_FILE
+}
+
 function wait_for_end() {
   sleep 10
   while true; do
@@ -54,7 +62,7 @@ function wait_for_end() {
 }
 
 function kill_sync_process() {
-  ps -ef | grep "$WORK_DIR/$CONFIG" | grep -v grep | awk '{print $2}' | xargs kill -9
+  ps -ef | grep "$WORK_DIR/$DB_SYNC_CONFIG" | grep -v grep | awk '{print $2}' | xargs kill -9
 }
 
 while getopts 'i' OPT; do
@@ -63,9 +71,12 @@ while getopts 'i' OPT; do
   esac
 done
 
+init_target_db
 cp "${STATE_FILE}.bak" $STATE_FILE
-nohup $WORK_DIR/$BINARY --config $WORK_DIR/$CONFIG &
+nohup $WORK_DIR/$BINARY --config $WORK_DIR/$DB_SYNC_CONFIG &
 wait_for_end
 kill_sync_process
+
+
 
 echo "test done"
