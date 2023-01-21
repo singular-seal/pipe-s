@@ -564,7 +564,7 @@ func (in *MysqlBinlogInput) GetState() ([]byte, bool) {
 		return nil, true
 	}
 	if lastErr != nil {
-		in.GetLogger().Error("ack error received", log.Any("pos", pos), log.Error(err))
+		in.GetLogger().Error("ack error received", log.Any("pos", pos), log.Error(lastErr))
 		return nil, true
 	} else {
 		return state, false
