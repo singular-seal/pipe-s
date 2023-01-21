@@ -1,10 +1,10 @@
 #!/bin/bash
 
-SRC_HOST="localhost"
+SRC_HOST="127.0.0.1"
 SRC_PORT=3306
 SRC_USER="admin"
 SRC_PASSWORD="admin"
-TARGET_HOST="localhost"
+TARGET_HOST="127.0.0.1"
 TARGET_PORT=3307
 TARGET_USER="root"
 TARGET_PASSWORD="root"
