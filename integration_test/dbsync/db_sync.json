@@ -1,7 +1,7 @@
 {
   "Task": {
     "ID": "db_sync",
-    "LogPath": "/home/xxx",
+    "LogPath": ".",
     "StateStore": {
       "ID": "default",
       "Type": "file",
@@ -40,7 +40,7 @@
                 "DB": "pipes_test_db"
               },
               "Target": {
-                "DB": "pipes_dest_db"
+                "DB": "pipes_test_db"
               }
             }
           ]
