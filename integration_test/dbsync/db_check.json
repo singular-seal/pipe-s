@@ -33,7 +33,7 @@
                 "DB": "pipes_test_db"
               },
               "Target": {
-                "DB": "pipes_dest_db"
+                "DB": "pipes_test_db"
               }
             }
           ]
