@@ -1,7 +1,7 @@
 {
   "Task": {
     "ID": "MysqlCheck",
-    "LogPath": "/home/xxx",
+    "LogPath": ".",
     "StateStore": {
       "ID": "default",
       "Type": "file",
