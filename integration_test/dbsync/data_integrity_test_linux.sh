@@ -24,6 +24,8 @@ TABLE_STRUCTURE_FILE="dump.sql"
 
 METRICS_PORT=7778
 
+RUNNING_COUNT=1
+
 function init_binlog() {
   echo "begin init binlog"
   mysql -h$SRC_HOST -P$SRC_PORT -u$SRC_USER -p$SRC_PASSWORD -Bse "drop database if exists $DATABASE;create database $DATABASE"
@@ -34,18 +36,22 @@ function init_binlog() {
   return
 }
 
-function is_syncing() {
+# 1=syncing 0=finished 2=not started
+function sync_status() {
   qps=$(curl -s localhost:$METRICS_PORT/metrics | grep 'task_qps{' | awk '{print $NF}')
+  if [ -z "$qps" ]; then
+    return 2
+  fi
   if [ "$qps" -gt "0" ]; then
     return 1
   fi
-  sleep 1
+  # ensure there's no dataflow by 2 qps=0 which have 10 seconds interval
+  sleep 10
   if [ "$qps" -gt "0" ]; then
     return 1
   else
     return 0
   fi
-  return
 }
 
 function init_target_db() {
@@ -57,11 +63,16 @@ function init_target_db() {
 function wait_for_sync_finished() {
   sleep 10
   while true; do
-    is_syncing
-    if [ $? -ne 1 ]; then
+    sync_status
+    s=$?
+    if [ $s -eq 0 ]; then
       return
+    elif [ $s -eq 1 ]; then
+      echo "syncing data"
+    else
+      echo "syncing process exited"
     fi
-    echo "waiting for sync finish"
+
     sleep 10
   done
 }
@@ -73,12 +84,13 @@ function kill_sync_process() {
 function wait_for_sync_process_stopped() {
   while true; do
     count=$(lsof -i:$METRICS_PORT | wc -l)
-    if [ "$count" -eq 0 ]; then
+    if [ "$count" -eq "0" ]; then
       echo "syncing stopped ..."
       return
     fi
     sleep 1
   done
+  sleep 10
 }
 
 function randomly_restart_sync() {
@@ -90,22 +102,31 @@ function randomly_restart_sync() {
   nohup $WORK_DIR/$BINARY --config $WORK_DIR/$DB_SYNC_CONFIG &
 }
 
-while getopts 'i' OPT; do
+function test_once() {
+  init_target_db
+  cp "${DB_SYNC_STATE_FILE}.bak" $DB_SYNC_STATE_FILE
+  nohup $WORK_DIR/$BINARY --config $WORK_DIR/$DB_SYNC_CONFIG &
+  randomly_restart_sync
+  wait_for_sync_finished
+  kill_sync_process
+
+  echo "begin checking db"
+  rm "$DB_CHECK_STATE_FILE"
+  $WORK_DIR/$BINARY --config $WORK_DIR/$DB_CHECK_CONFIG
+  echo "finish one run"
+}
+
+while getopts 'i:c:' OPT; do
   case $OPT in
   i) init_binlog ;;
+  c) RUNNING_COUNT="$OPTARG" ;;
   esac
 done
 
-init_target_db
-cp "${DB_SYNC_STATE_FILE}.bak" $DB_SYNC_STATE_FILE
-nohup $WORK_DIR/$BINARY --config $WORK_DIR/$DB_SYNC_CONFIG &
-randomly_restart_sync
-wait_for_sync_finished
-kill_sync_process
-
-echo "begin checking db"
-rm "$DB_CHECK_STATE_FILE"
 rm "$DB_CHECK_RESULT_FILE"
-$WORK_DIR/$BINARY --config $WORK_DIR/$DB_CHECK_CONFIG
 
+while [ "$RUNNING_COUNT" -gt "0" ]; do
+  test_once
+  RUNNING_COUNT=$((RUNNING_COUNT - 1))
+done
 echo "all done"
