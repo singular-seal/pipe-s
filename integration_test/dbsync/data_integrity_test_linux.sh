@@ -85,8 +85,16 @@ function wait_for_sync_process_stopped() {
   while true; do
     count=$(lsof -i:$METRICS_PORT | wc -l)
     if [ "$count" -eq "0" ]; then
+      break
+    fi
+    sleep 1
+  done
+
+  while true; do
+    count=$(ps -ef | grep "$WORK_DIR/$DB_SYNC_CONFIG" | grep -v grep -c)
+    if [ "$count" -eq "0" ]; then
       echo "syncing stopped ..."
-      return
+      break
     fi
     sleep 1
   done
