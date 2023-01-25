@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# usage: ./data_integrity_test_linux.sh -i -c 10 -e
+# -i will run init binlog before test cases
+# -c test loop count
+# -e if mismatches are found, exit the test even there are still more loops to tun
+
 SRC_HOST="127.0.0.1"
 SRC_PORT=3306
 SRC_USER="admin"
@@ -25,6 +30,8 @@ TABLE_STRUCTURE_FILE="dump.sql"
 METRICS_PORT=7778
 
 RUNNING_COUNT=1
+# won't finish all test rounds if mismatches are found, default is false
+EXIT_ON_MISMATCH=0
 
 function init_binlog() {
   echo "begin init binlog"
@@ -98,6 +105,7 @@ function wait_for_sync_process_stopped() {
     fi
     sleep 1
   done
+  # wait till all mysql commands are flushed
   sleep 10
 }
 
@@ -124,17 +132,28 @@ function test_once() {
   echo "finish one run"
 }
 
-while getopts 'i:c:' OPT; do
+while getopts 'i:c:e' OPT; do
   case $OPT in
   i) init_binlog ;;
   c) RUNNING_COUNT="$OPTARG" ;;
+  e) EXIT_ON_MISMATCH=1 ;;
   esac
 done
 
 rm "$DB_CHECK_RESULT_FILE"
 
+run_number=1
 while [ "$RUNNING_COUNT" -gt "0" ]; do
+  echo "start running $run_number"
   test_once
+  if [ $EXIT_ON_MISMATCH -eq 1 ]; then
+    size=$(du -b $DB_CHECK_RESULT_FILE | awk '{print $1}')
+    if [ "$size" -gt "0" ]; then
+      echo "mismatches found"
+      break
+    fi
+  fi
   RUNNING_COUNT=$((RUNNING_COUNT - 1))
+  run_number=$((run_number + 1))
 done
 echo "all done"
