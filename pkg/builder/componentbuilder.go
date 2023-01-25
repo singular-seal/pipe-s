@@ -6,6 +6,7 @@ import (
 	"github.com/singular-seal/pipe-s/pkg/input/mysql/binlog"
 	"github.com/singular-seal/pipe-s/pkg/input/mysql/scan"
 	"github.com/singular-seal/pipe-s/pkg/log"
+	"github.com/singular-seal/pipe-s/pkg/output/debug"
 	"github.com/singular-seal/pipe-s/pkg/output/dummy"
 	"github.com/singular-seal/pipe-s/pkg/output/logoutput"
 	"github.com/singular-seal/pipe-s/pkg/output/mysql/batch"
@@ -180,6 +181,9 @@ func InitComponentBuilder(logger *log.Logger) {
 	})
 	dc.RegisterComponent("DummyOutput", func() core.Component {
 		return dummy.NewDummyOutput()
+	})
+	dc.RegisterComponent("DebugOutput", func() core.Component {
+		return debug.NewDebugOutput()
 	})
 	dc.RegisterComponent("MysqlBatchOutput", func() core.Component {
 		return batch.NewMysqlBatchOutput()
