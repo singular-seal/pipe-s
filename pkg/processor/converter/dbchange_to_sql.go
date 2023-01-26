@@ -6,8 +6,18 @@ import (
 	"github.com/singular-seal/pipe-s/pkg/utils"
 )
 
+const (
+	RoutingByTable      = "Table"
+	RoutingByPrimaryKey = "PrimaryKey"
+)
+
 type DBChangeToSQLConverter struct {
 	*core.BaseComponent
+	config *DBChangeToSQLConverterConfig
+}
+
+type DBChangeToSQLConverterConfig struct {
+	RoutingBy string
 }
 
 func NewDBChangeToSQLConverter() *DBChangeToSQLConverter {
@@ -17,7 +27,15 @@ func NewDBChangeToSQLConverter() *DBChangeToSQLConverter {
 }
 
 func (c *DBChangeToSQLConverter) Configure(config core.StringMap) (err error) {
-	return nil
+	co := &DBChangeToSQLConverterConfig{}
+	if err = utils.ConfigToStruct(config, co); err != nil {
+		return
+	}
+	c.config = co
+	if len(c.config.RoutingBy) == 0 {
+		c.config.RoutingBy = RoutingByTable
+	}
+	return
 }
 
 func (c *DBChangeToSQLConverter) Process(msg *core.Message) (bool, error) {
@@ -39,7 +57,12 @@ func (c *DBChangeToSQLConverter) Process(msg *core.Message) (bool, error) {
 	}
 
 	sqlEvent.SQLString, sqlEvent.SQLArgs = utils.GenerateSqlAndArgs(dbChange, pkCols)
-	msg.SetMeta(core.RoutingKey, genKeyHash(dbChange.Database, dbChange.Table, getKeyValues(dbChange, pkCols)))
+	if c.config.RoutingBy == RoutingByPrimaryKey {
+		msg.SetMeta(core.RoutingKey, genKeyHash(dbChange.Database, dbChange.Table, getKeyValues(dbChange, pkCols)))
+	} else {
+		msg.SetMeta(core.RoutingKey, genTableHash(dbChange.Database, dbChange.Table))
+	}
+
 	return false, nil
 }
 
@@ -57,5 +80,11 @@ func genKeyHash(db string, table string, pks []interface{}) int {
 	for _, pk := range pks {
 		result += utils.GetFNV64aHash(fmt.Sprintf("%v", pk))
 	}
-	return result
+	return utils.AbsInt(result)
+}
+
+func genTableHash(db string, table string) int {
+	result := utils.GetFNV64aHash(db)
+	result += utils.GetFNV64aHash(table)
+	return utils.AbsInt(result)
 }

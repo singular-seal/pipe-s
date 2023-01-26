@@ -28,3 +28,10 @@ func GetFNV64aHash(text string) int {
 	algorithm.Write([]byte(text))
 	return int(algorithm.Sum64())
 }
+
+func AbsInt(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
+}
