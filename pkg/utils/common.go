@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"hash/fnv"
 	"reflect"
 	"time"
 )
@@ -20,4 +21,10 @@ func ReadDataFromPointers(pointers []interface{}) []interface{} {
 
 func IntervalCheckTicker(intervalMS int64) *time.Ticker {
 	return time.NewTicker(time.Millisecond * time.Duration(intervalMS/10+1))
+}
+
+func GetFNV64aHash(text string) int {
+	algorithm := fnv.New64a()
+	algorithm.Write([]byte(text))
+	return int(algorithm.Sum64())
 }

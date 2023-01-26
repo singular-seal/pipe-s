@@ -10,6 +10,7 @@ const (
 	TypeDML      = "dml"
 	TypeJsonByte = "json_byte"
 	TypeDBChange = "db_change"
+	TypeSQData   = "sql_data"
 )
 
 type MessageHeader struct {
@@ -70,6 +71,7 @@ const (
 	MetaMySqlScanPos
 	MetaTableSchema
 	AckWaitGroup
+	RoutingKey
 )
 
 // db operation types

@@ -7,7 +7,6 @@ import (
 	"github.com/singular-seal/pipe-s/pkg/core"
 	"github.com/singular-seal/pipe-s/pkg/schema"
 	"github.com/singular-seal/pipe-s/pkg/utils"
-	"hash/fnv"
 	"strings"
 )
 
@@ -181,17 +180,11 @@ func calcHash(pk []interface{}) int {
 		return 0
 	}
 	if len(pk) == 1 {
-		return getFNV64aHash(fmt.Sprintf("%v", pk))
+		return utils.GetFNV64aHash(fmt.Sprintf("%v", pk))
 	}
 	var sb strings.Builder
 	for _, each := range pk {
 		sb.WriteString(fmt.Sprintf("%v", each))
 	}
-	return getFNV64aHash(sb.String())
-}
-
-func getFNV64aHash(text string) int {
-	algorithm := fnv.New64a()
-	algorithm.Write([]byte(text))
-	return int(algorithm.Sum64())
+	return utils.GetFNV64aHash(sb.String())
 }
