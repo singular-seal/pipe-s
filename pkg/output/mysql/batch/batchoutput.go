@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	DefaultMaxIdleConnections = 1000
+	DefaultMaxConnections     = 100
 	DefaultTableConcurrency   = 1
 	DefaultFlushIntervalMS    = 100
 	DefaultFlushBatchSize     = 3000
@@ -87,7 +87,7 @@ func (o *MysqlBatchOutput) Configure(config core.StringMap) (err error) {
 	o.config = c
 
 	if o.config.MaxConnections == 0 {
-		o.config.MaxConnections = DefaultMaxIdleConnections
+		o.config.MaxConnections = DefaultMaxConnections
 	}
 	if o.config.TableConcurrency == 0 {
 		o.config.TableConcurrency = DefaultTableConcurrency

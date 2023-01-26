@@ -11,6 +11,7 @@ import (
 	"github.com/singular-seal/pipe-s/pkg/output/logoutput"
 	"github.com/singular-seal/pipe-s/pkg/output/mysql/batch"
 	"github.com/singular-seal/pipe-s/pkg/output/mysql/check"
+	"github.com/singular-seal/pipe-s/pkg/output/mysql/stream"
 	"github.com/singular-seal/pipe-s/pkg/pipeline/simple"
 	"github.com/singular-seal/pipe-s/pkg/processor/converter"
 	"github.com/singular-seal/pipe-s/pkg/processor/filter"
@@ -190,6 +191,9 @@ func InitComponentBuilder(logger *log.Logger) {
 	})
 	dc.RegisterComponent("MysqlCheckOutput", func() core.Component {
 		return check.NewMysqlCheckOutput()
+	})
+	dc.RegisterComponent("MysqlStreamOutput", func() core.Component {
+		return stream.NewMysqlStreamOutput()
 	})
 
 	dc.RegisterComponent("JsonMarshaller", func() core.Component {
