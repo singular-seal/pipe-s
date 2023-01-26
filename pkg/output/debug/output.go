@@ -18,8 +18,8 @@ func NewDebugOutput() *DebugOutput {
 func (out *DebugOutput) Process(msg *core.Message) {
 	event := msg.Data.(*core.DBChangeEvent)
 	id := event.GetRow()["id"]
-	if id == 77 {
-		fmt.Println("found")
+	if id.(int32) == 2963 {
+		fmt.Println(fmt.Sprintf("id:%s op:%s", msg.Header.ID, event.Operation))
 	}
 	out.GetInput().Ack(msg, nil)
 }
