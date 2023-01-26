@@ -1,0 +1,35 @@
+{
+  "Task": {
+    "ID": "debug_binlog",
+    "LogPath": ".",
+    "StateStore": {
+      "ID": "default",
+      "Type": "file",
+      "Path": "state_store.data",
+      "SaveIntervalMS": 10000
+    },
+    "Pipeline": {
+      "ID": "debug-binlog-pipeline",
+      "Type": "DisruptorPipeline",
+      "Input": {
+        "Type": "MysqlBinlogInput",
+        "Address": "192.168.18.14:3306",
+        "User": "admin",
+        "Password": "admin",
+        "ReplicationMode": "filepos"
+      },
+      "Processors": [
+        {
+          "Type": "MysqlDMLFilter",
+          "FullTableNamePattern": "^pipes_test_db.sbtest1$"
+        },
+        {
+          "Type": "MysqlDMLToDBChangeConverter"
+        }
+      ],
+      "Output": {
+        "Type": "DebugOutput"
+      }
+    }
+  }
+}
