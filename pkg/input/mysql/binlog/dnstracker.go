@@ -21,7 +21,7 @@ type DNSTracker struct {
 	logger          *log.Logger
 }
 
-func NewDNSTracker(host string, changeCallback func(), logger *log.Logger) *DNSTracker {
+func NewDNSTracker(host string, logger *log.Logger, changeCallback func()) *DNSTracker {
 	return &DNSTracker{
 		host:           host,
 		ipList:         make([]string, 0),
@@ -102,6 +102,8 @@ func (t *DNSTracker) detectDNSChange() (changed bool) {
 	if reflect.DeepEqual(t.ipList, ipList) {
 		return
 	}
+
+	t.logger.Info("dns change detected", log.Any("old", t.ipList), log.Any("new", ipList))
 	changed = true
 	return
 }

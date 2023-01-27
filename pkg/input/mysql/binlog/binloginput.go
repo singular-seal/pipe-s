@@ -94,6 +94,8 @@ type MysqlBinlogInput struct {
 
 	lastAckMsg   atomic.Value // the last acknowledged message
 	lastAckError atomic.Value // the last acknowledged error received
+
+	dnsTracker *DNSTracker // track dns change
 }
 
 func NewMysqlBinlogInput() *MysqlBinlogInput {
@@ -253,12 +255,12 @@ func (in *MysqlBinlogInput) startSync() (err error) {
 		return
 	}
 
-	/*	err = s.startTrackHostnameChanges()
-		if err != nil {
-			s.Logger.WithError(err).Error("start_hostname_change_track_eror")
-			return
-		}
-	*/
+	if in.mysqlSwitchType == SwitchByDNS {
+		in.dnsTracker = NewDNSTracker(in.mysqlAddress.host, in.GetLogger(), func() {
+			in.RaiseError(fmt.Errorf("dns change detected"))
+		})
+		in.dnsTracker.Start()
+	}
 
 	return
 }
@@ -575,6 +577,9 @@ func (in *MysqlBinlogInput) GetState() ([]byte, bool) {
 }
 
 func (in *MysqlBinlogInput) Stop() {
+	if in.mysqlSwitchType == SwitchByDNS {
+		in.dnsTracker.Stop()
+	}
 	in.syncer.Close()
 	in.schemaStore.Close()
 }
