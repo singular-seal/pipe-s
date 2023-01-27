@@ -194,6 +194,13 @@ func (in *MysqlBinlogInput) Start() (err error) {
 		in.GetLogger().Error("failed to start syncing", log.Error(err))
 		return
 	}
+
+	if in.mysqlSwitchType == SwitchByDNS {
+		in.dnsTracker = NewDNSTracker(in.mysqlAddress.host, in.GetLogger(), func() {
+			in.RaiseError(fmt.Errorf("dns change detected"))
+		})
+		in.dnsTracker.Start()
+	}
 	return
 }
 
@@ -253,13 +260,6 @@ func (in *MysqlBinlogInput) startSync() (err error) {
 	}
 	if err != nil {
 		return
-	}
-
-	if in.mysqlSwitchType == SwitchByDNS {
-		in.dnsTracker = NewDNSTracker(in.mysqlAddress.host, in.GetLogger(), func() {
-			in.RaiseError(fmt.Errorf("dns change detected"))
-		})
-		in.dnsTracker.Start()
 	}
 
 	return
