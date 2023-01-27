@@ -53,8 +53,8 @@ function sync_status() {
   if [ "$qps" -gt "0" ]; then
     return 1
   fi
-  # ensure there's no dataflow by 2 qps=0 which have 10 seconds interval
-  sleep 10
+  # ensure there's no dataflow by 2 qps=0 which have 20 seconds interval
+  sleep 20
   if [ "$qps" -gt "0" ]; then
     return 1
   else
