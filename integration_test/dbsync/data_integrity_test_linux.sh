@@ -28,7 +28,8 @@ DB_CHECK_RESULT_FILE="check_result.txt"
 TABLE_STRUCTURE_FILE="dump.sql"
 
 METRICS_PORT=7778
-
+# when to kick off task restarting
+RESTART_TIME_LIMIT=60
 RUNNING_COUNT=1
 # won't finish all test rounds if mismatches are found, default is false
 EXIT_ON_MISMATCH=0
@@ -110,7 +111,7 @@ function wait_for_sync_process_stopped() {
 }
 
 function randomly_restart_sync() {
-  delay=$((RANDOM % 40 + 10))
+  delay=$((RANDOM % RESTART_TIME_LIMIT + 10))
   echo "restart after $delay seconds"
   sleep $((delay))
   kill_sync_process
