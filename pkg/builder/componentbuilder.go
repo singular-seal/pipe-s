@@ -208,8 +208,5 @@ func InitComponentBuilder(logger *log.Logger) {
 	dc.RegisterComponent("MysqlDMLFilter", func() core.Component {
 		return filter.NewMysqlDMLFilter()
 	})
-	dc.RegisterComponent("DBChangeToSQLConverter", func() core.Component {
-		return converter.NewDBChangeToSQLConverter()
-	})
 
 }

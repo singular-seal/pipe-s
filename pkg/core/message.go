@@ -172,12 +172,3 @@ func (e *DBChangeEvent) GetColumns() []string {
 	}
 	return result
 }
-
-// SQLEvent carries sql
-type SQLEvent struct {
-	Database  string        // database name
-	Table     string        // table name
-	Operation string        // insert/update/delete
-	SQLString string        // sql query string to be executed
-	SQLArgs   []interface{} // values of the arguments for the sql query string
-}

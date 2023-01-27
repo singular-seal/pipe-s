@@ -30,31 +30,15 @@
         },
         {
           "Type": "MysqlDMLToDBChangeConverter"
-        },
-        {
-          "Type": "DBChangeMappingProcessor",
-          "TableNamePattern": "^([a-z]+)\\d+$",
-          "Mappings": [
-            {
-              "Source": {
-                "DB": "pipes_test_db"
-              },
-              "Target": {
-                "DB": "pipes_test_db"
-              }
-            }
-          ]
         }
       ],
       "Output": {
-        "Type": "MysqlBatchOutput",
+        "Type": "MysqlStreamOutput",
         "Host": "192.168.18.14",
         "Port": 3307,
         "User": "root",
         "Password": "root",
-        "TableConcurrency":1,
-        "FlushIntervalMS":1000,
-        "FlushBatchSize":1000
+        "Concurrency":8
       }
     }
   }
