@@ -118,6 +118,7 @@ func (t *DefaultTask) startPprof() {
 // syncState load state from pipeline and save to state store periodically.
 func (t *DefaultTask) syncState() {
 	ticker := time.NewTicker(time.Duration(t.saveStateIntervalMS) * time.Millisecond)
+	defer ticker.Stop()
 	stop := false
 	for {
 		select {

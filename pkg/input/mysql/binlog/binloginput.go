@@ -14,6 +14,7 @@ import (
 	"github.com/singular-seal/pipe-s/pkg/metrics"
 	"github.com/singular-seal/pipe-s/pkg/schema"
 	"github.com/singular-seal/pipe-s/pkg/utils"
+	"net"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -28,10 +29,9 @@ const (
 )
 
 const (
-	// MysqlFailOverByVIP will not change ip after failing over
-	MysqlFailOverByVIP = 0
-	// MysqlFailOverByIP will change ip after failing over
-	MysqlFailOverByIP = 1
+	NoSwitch    = 0
+	SwitchByIP  = 1 // master slave switch in a list of ip
+	SwitchByDNS = 2 // switch by dns change
 )
 
 const (
@@ -52,6 +52,7 @@ type MysqlBinlogInputConfig struct {
 	ReplicationMode string // gtid or filepos
 	SyncDDL         bool   // whether generate events for ddl
 	SyncTxInfo      bool   // whether generate events for transaction boundaries
+	SwitchByDNS     bool   // if switch mysql master slave by changing dns
 }
 
 type address struct {
@@ -77,10 +78,10 @@ func newAddressFromString(ads string) (*address, error) {
 // MysqlBinlogInput extracts binlog events from mysql server.
 type MysqlBinlogInput struct {
 	*core.BaseInput
-	Config            *MysqlBinlogInputConfig
-	mysqlAddress      *address   // address of the mysql server providing binlog
-	backupAddresses   []*address // backup servers for current mysql server is down
-	mysqlFailOverType int        // how to handle mysql fail over
+	Config          *MysqlBinlogInputConfig
+	mysqlAddress    *address   // address of the mysql server providing binlog
+	backupAddresses []*address // backup servers for current mysql server is down
+	mysqlSwitchType int        // how to handle mysql fail over
 
 	serverStatus     *ServerStatus
 	stateInitialized bool
@@ -132,10 +133,12 @@ func (in *MysqlBinlogInput) Configure(config core.StringMap) (err error) {
 			return err
 		}
 	}
-	if len(in.backupAddresses) > 0 {
-		in.mysqlFailOverType = MysqlFailOverByIP
+	if in.Config.SwitchByDNS && net.ParseIP(in.mysqlAddress.host) != nil {
+		in.mysqlSwitchType = SwitchByDNS
+	} else if len(in.backupAddresses) > 0 {
+		in.mysqlSwitchType = SwitchByIP
 	} else {
-		in.mysqlFailOverType = MysqlFailOverByVIP
+		in.mysqlSwitchType = NoSwitch
 	}
 	return
 }

@@ -1,7 +1,9 @@
 package utils
 
 import (
+	"context"
 	"hash/fnv"
+	"net"
 	"reflect"
 	"time"
 )
@@ -19,6 +21,8 @@ func ReadDataFromPointers(pointers []interface{}) []interface{} {
 	return result
 }
 
+// IntervalCheckTicker ensure things happen in intervalMS period so use a much smaller check interval
+// than intervalMS to prevent the extreme near 2*intervalMS situation.
 func IntervalCheckTicker(intervalMS int64) *time.Ticker {
 	return time.NewTicker(time.Millisecond * time.Duration(intervalMS/10+1))
 }
@@ -34,4 +38,12 @@ func AbsInt(x int) int {
 		return -x
 	}
 	return x
+}
+
+func LookupDNS(host string) ([]string, error) {
+	const DNSTimeout = 5000
+	timeoutDuration := time.Duration(DNSTimeout) * time.Millisecond
+	ctx, _ := context.WithTimeout(context.Background(), timeoutDuration)
+
+	return net.DefaultResolver.LookupHost(ctx, host)
 }

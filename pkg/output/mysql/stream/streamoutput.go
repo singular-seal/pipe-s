@@ -25,7 +25,7 @@ type MysqlStreamOutput struct {
 	schemaStore schema.SchemaStore // schema store of the target db
 	conn        *sql.DB
 
-	taskQueues      []chan *task
+	taskQueues      []chan *task // messages will be dispatched into different task queues for concurrent processing
 	stopWaitContext context.Context
 	stopCancel      context.CancelFunc
 	stopWait        *sync.WaitGroup

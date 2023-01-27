@@ -68,6 +68,7 @@ func (p *TableProcessor) Run() {
 	go func() {
 		p.lastFlushTime = time.Now()
 		ticker := utils.IntervalCheckTicker(p.output.config.FlushIntervalMS)
+		defer ticker.Stop()
 		for {
 			select {
 			case <-p.stopContext.Done():

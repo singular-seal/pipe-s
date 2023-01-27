@@ -116,6 +116,7 @@ func (m *TaskMetrics) Start() (err error) {
 
 	go func() {
 		ticker := time.NewTicker(time.Second * time.Duration(DefaultStatisticsIntervalSeconds))
+		defer ticker.Stop()
 		for {
 			select {
 			case <-ticker.C:

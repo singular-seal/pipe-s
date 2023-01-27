@@ -209,6 +209,7 @@ func (p *DisruptorPipeline) Configure(config core.StringMap) (err error) {
 // checkStatus check status of pipeline at a constant interval, if it finds stuck will close the pipeline
 func (p *DisruptorPipeline) checkStatus() {
 	ticker := time.NewTicker(DefaultCheckProgressInterval)
+	defer ticker.Stop()
 	prevOut := p.outQueueCount
 	for {
 		select {
