@@ -146,15 +146,15 @@ func (in *MysqlBinlogInput) Configure(config core.StringMap) (err error) {
 }
 
 // initSyncer initialise go mysql binlog syncer
-func (in *MysqlBinlogInput) initSyncer() {
+func (in *MysqlBinlogInput) initSyncer(addr *address) {
 	initGoMysqlLogger(in.GetLogger())
 
 	config := replication.DisruptorBinlogSyncerConfig{
 		BinlogSyncerConfig: replication.BinlogSyncerConfig{
 			ServerID:  utils.GenerateRandomServerID(),
 			Flavor:    "mysql",
-			Host:      in.mysqlAddress.host,
-			Port:      in.mysqlAddress.port,
+			Host:      addr.host,
+			Port:      addr.port,
 			User:      in.Config.User,
 			Password:  in.Config.Password,
 			Localhost: FakeMysqlSlaveHostName,
@@ -189,7 +189,7 @@ func (in *MysqlBinlogInput) Start() (err error) {
 	in.GetLogger().Info("mysql server status loaded", log.String("status", in.serverStatus.String()))
 
 	// init and start sync
-	in.initSyncer()
+	in.initSyncer(in.mysqlAddress)
 	if err = in.startSync(); err != nil {
 		in.GetLogger().Error("failed to start syncing", log.Error(err))
 		return
