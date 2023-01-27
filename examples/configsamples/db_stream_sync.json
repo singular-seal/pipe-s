@@ -1,0 +1,45 @@
+{
+  "Task": {
+    "ID": "db_sync",
+    "LogPath": "/Users/xxx/development",
+    "StateStore": {
+      "ID": "default",
+      "Type": "file",
+      "Path": "/Users/xxx/development/1.data",
+      "SaveIntervalMS": 10000
+    },
+    "PProfPort": 7777,
+    "Metrics": {
+      "Port": 7778
+    },
+    "Pipeline": {
+      "ID": "hello-world-pipeline",
+      "Type": "DisruptorPipeline",
+      "BufferSize": 262144,
+      "Input": {
+        "Type": "MysqlBinlogInput",
+        "Address": "192.168.18.14:3306",
+        "User": "admin",
+        "Password": "admin",
+        "ReplicationMode": "filepos"
+      },
+      "Processors": [
+        {
+          "Type": "MysqlDMLFilter",
+          "FullTableNamePattern": "^pipes_test_db.*"
+        },
+        {
+          "Type": "MysqlDMLToDBChangeConverter"
+        }
+      ],
+      "Output": {
+        "Type": "MysqlStreamOutput",
+        "Host": "192.168.18.14",
+        "Port": 3307,
+        "User": "root",
+        "Password": "root",
+        "Concurrency": 8
+      }
+    }
+  }
+}
