@@ -53,8 +53,9 @@ function sync_status() {
   if [ "$qps" -gt "0" ]; then
     return 1
   fi
-  # ensure there's no dataflow by 2 qps=0 which have 20 seconds interval
-  sleep 20
+  # ensure there's no dataflow by 2 qps=0 which have 10 seconds interval
+  sleep 10
+  qps=$(curl -s localhost:$METRICS_PORT/metrics | grep 'task_qps{' | awk '{print $NF}')
   if [ "$qps" -gt "0" ]; then
     return 1
   else
