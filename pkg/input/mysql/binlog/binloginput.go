@@ -258,10 +258,6 @@ func (in *MysqlBinlogInput) startSync() (err error) {
 	default:
 		err = fmt.Errorf("unknown replication mode:%s", in.replicationMode)
 	}
-	if err != nil {
-		return
-	}
-
 	return
 }
 
