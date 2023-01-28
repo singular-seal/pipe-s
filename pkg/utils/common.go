@@ -47,3 +47,8 @@ func LookupDNS(host string) ([]string, error) {
 
 	return net.DefaultResolver.LookupHost(ctx, host)
 }
+
+// IsNil works around the famous issue https://stackoverflow.com/questions/13476349/check-for-nil-and-nil-interface-in-go
+func IsNil(v interface{}) bool {
+	return v == nil || (reflect.ValueOf(v).Kind() == reflect.Ptr && reflect.ValueOf(v).IsNil())
+}

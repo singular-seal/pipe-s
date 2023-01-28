@@ -127,8 +127,10 @@ func (in *MysqlBinlogInput) Configure(config core.StringMap) (err error) {
 	if in.mysqlAddress, err = newAddressFromString(c.Address); err != nil {
 		return
 	}
-	if in.backupAddress, err = newAddressFromString(c.BackupAddress); err != nil {
-		return
+	if len(c.BackupAddress) > 0 {
+		if in.backupAddress, err = newAddressFromString(c.BackupAddress); err != nil {
+			return
+		}
 	}
 
 	if in.Config.SwitchByDNS && net.ParseIP(in.mysqlAddress.host) == nil {
@@ -197,10 +199,10 @@ func (in *MysqlBinlogInput) startFromAddress(addr *address) (err error) {
 func (in *MysqlBinlogInput) Start() (err error) {
 	// in SwitchByIP mode try mysqlAddress first if fails try backupAddress
 	if in.mysqlSwitchType == SwitchByIP {
-		if in.startFromAddress(in.mysqlAddress); err == nil {
+		if err = in.startFromAddress(in.mysqlAddress); err == nil {
 			return
 		}
-		in.GetLogger().Error("failed to start from first mysql", log.Error(err))
+		in.GetLogger().Info("failed to start from first mysql", log.Error(err))
 		in.clearResource()
 		if err = in.startFromAddress(in.backupAddress); err == nil {
 			return
@@ -209,7 +211,7 @@ func (in *MysqlBinlogInput) Start() (err error) {
 		return
 	}
 
-	if in.startFromAddress(in.mysqlAddress); err != nil {
+	if err = in.startFromAddress(in.mysqlAddress); err != nil {
 		return
 	}
 	if in.mysqlSwitchType == SwitchByDNS {
@@ -593,7 +595,7 @@ func (in *MysqlBinlogInput) clearResource() {
 	if in.syncer != nil {
 		in.syncer.Close()
 	}
-	if in.schemaStore != nil {
+	if !utils.IsNil(in.schemaStore) {
 		in.schemaStore.Close()
 	}
 }

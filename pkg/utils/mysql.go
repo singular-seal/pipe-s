@@ -15,9 +15,9 @@ import (
 )
 
 const (
-	DefaultMysqlConnectionTimeout = 60000 // milliseconds
-	DefaultMysqlReadTimeout       = 60000
-	DefaultMysqlWriteTimeout      = 60000
+	DefaultMysqlConnectionTimeout = 10000 // milliseconds
+	DefaultMysqlReadTimeout       = 30000
+	DefaultMysqlWriteTimeout      = 30000
 )
 
 // CreateMysqlClient creates a new instance of mysql connection
