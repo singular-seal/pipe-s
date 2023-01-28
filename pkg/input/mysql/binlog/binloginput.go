@@ -45,8 +45,8 @@ var TokenBegin = []byte("BEGIN")
 
 type MysqlBinlogInputConfig struct {
 	ID              string
-	Address         string   // the mysql server ip:port address
-	BackupAddresses []string // the backup servers addresses, if connecting Address fails will try these
+	Address         string // the mysql server ip:port address
+	BackupAddress   string // the backup server address, if connecting Address fails will try this
 	User            string
 	Password        string
 	ReplicationMode string // gtid or filepos
@@ -79,9 +79,9 @@ func newAddressFromString(ads string) (*address, error) {
 type MysqlBinlogInput struct {
 	*core.BaseInput
 	Config          *MysqlBinlogInputConfig
-	mysqlAddress    *address   // address of the mysql server providing binlog
-	backupAddresses []*address // backup servers for current mysql server is down
-	mysqlSwitchType int        // how to handle mysql fail over
+	mysqlAddress    *address // address of the mysql server providing binlog
+	backupAddress   *address // backup server for current mysql server is down
+	mysqlSwitchType int      // how to handle mysql fail over
 
 	serverStatus     *ServerStatus
 	stateInitialized bool
@@ -101,10 +101,9 @@ type MysqlBinlogInput struct {
 func NewMysqlBinlogInput() *MysqlBinlogInput {
 	eventConsumer := &EventConsumer{}
 	input := &MysqlBinlogInput{
-		BaseInput:       core.NewBaseInput(),
-		backupAddresses: make([]*address, 0),
-		eventConsumer:   eventConsumer,
-		sqlParser:       parser.New(),
+		BaseInput:     core.NewBaseInput(),
+		eventConsumer: eventConsumer,
+		sqlParser:     parser.New(),
 	}
 	eventConsumer.input = input
 	eventConsumer.committed = true
@@ -128,16 +127,13 @@ func (in *MysqlBinlogInput) Configure(config core.StringMap) (err error) {
 	if in.mysqlAddress, err = newAddressFromString(c.Address); err != nil {
 		return
 	}
-	for _, each := range c.BackupAddresses {
-		if addr, err := newAddressFromString(each); err == nil {
-			in.backupAddresses = append(in.backupAddresses, addr)
-		} else {
-			return err
-		}
+	if in.backupAddress, err = newAddressFromString(c.BackupAddress); err != nil {
+		return
 	}
+
 	if in.Config.SwitchByDNS && net.ParseIP(in.mysqlAddress.host) == nil {
 		in.mysqlSwitchType = SwitchByDNS
-	} else if len(in.backupAddresses) > 0 {
+	} else if in.backupAddress != nil {
 		in.mysqlSwitchType = SwitchByIP
 	} else {
 		in.mysqlSwitchType = NoSwitch
