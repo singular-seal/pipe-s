@@ -170,14 +170,15 @@ func (in *MysqlBinlogInput) initSyncer(addr *address) {
 	in.GetLogger().Info("init binlog syncer", log.Uint32("ServerID", config.ServerID))
 }
 
-func (in *MysqlBinlogInput) Start() (err error) {
-	if in.schemaStore, err = schema.NewSimpleSchemaStoreWithParameters(in.mysqlAddress.host, in.mysqlAddress.port,
+func (in *MysqlBinlogInput) startFromAddress(addr *address) (err error) {
+	in.GetLogger().Info("start from address", log.String("host", addr.host), log.Uint16("port", addr.port))
+	if in.schemaStore, err = schema.NewSimpleSchemaStoreWithParameters(addr.host, addr.port,
 		in.Config.User, in.Config.Password); err != nil {
 		return
 	}
 	in.schemaStore.SetLogger(in.GetLogger())
 
-	in.serverStatus, err = LoadFromServer(in.mysqlAddress.host, in.mysqlAddress.port, in.Config.User, in.Config.Password)
+	in.serverStatus, err = LoadFromServer(addr.host, addr.port, in.Config.User, in.Config.Password)
 	if err != nil {
 		in.GetLogger().Error("failed load mysql server status", log.Error(err))
 		return
@@ -185,12 +186,32 @@ func (in *MysqlBinlogInput) Start() (err error) {
 	in.GetLogger().Info("mysql server status loaded", log.String("status", in.serverStatus.String()))
 
 	// init and start sync
-	in.initSyncer(in.mysqlAddress)
+	in.initSyncer(addr)
 	if err = in.startSync(); err != nil {
 		in.GetLogger().Error("failed to start syncing", log.Error(err))
 		return
 	}
+	return
+}
 
+func (in *MysqlBinlogInput) Start() (err error) {
+	// in SwitchByIP mode try mysqlAddress first if fails try backupAddress
+	if in.mysqlSwitchType == SwitchByIP {
+		if in.startFromAddress(in.mysqlAddress); err == nil {
+			return
+		}
+		in.GetLogger().Error("failed to start from first mysql", log.Error(err))
+		in.clearResource()
+		if err = in.startFromAddress(in.backupAddress); err == nil {
+			return
+		}
+		in.GetLogger().Error("failed to start from backup mysql", log.Error(err))
+		return
+	}
+
+	if in.startFromAddress(in.mysqlAddress); err != nil {
+		return
+	}
 	if in.mysqlSwitchType == SwitchByDNS {
 		in.dnsTracker = NewDNSTracker(in.mysqlAddress.host, in.GetLogger(), func() {
 			in.RaiseError(fmt.Errorf("dns change detected"))
@@ -568,10 +589,18 @@ func (in *MysqlBinlogInput) GetState() ([]byte, bool) {
 	}
 }
 
+func (in *MysqlBinlogInput) clearResource() {
+	if in.syncer != nil {
+		in.syncer.Close()
+	}
+	if in.schemaStore != nil {
+		in.schemaStore.Close()
+	}
+}
+
 func (in *MysqlBinlogInput) Stop() {
 	if in.mysqlSwitchType == SwitchByDNS {
 		in.dnsTracker.Stop()
 	}
-	in.syncer.Close()
-	in.schemaStore.Close()
+	in.clearResource()
 }
