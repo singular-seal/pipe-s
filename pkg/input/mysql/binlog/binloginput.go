@@ -135,7 +135,7 @@ func (in *MysqlBinlogInput) Configure(config core.StringMap) (err error) {
 			return err
 		}
 	}
-	if in.Config.SwitchByDNS && net.ParseIP(in.mysqlAddress.host) != nil {
+	if in.Config.SwitchByDNS && net.ParseIP(in.mysqlAddress.host) == nil {
 		in.mysqlSwitchType = SwitchByDNS
 	} else if len(in.backupAddresses) > 0 {
 		in.mysqlSwitchType = SwitchByIP

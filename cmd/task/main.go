@@ -25,7 +25,7 @@ func main() {
 			}
 			err = t.Start()
 			if err != nil {
-				fmt.Printf("Task start with err - %v\n", err)
+				fmt.Printf("Task has error - %v\n", err)
 			}
 		},
 	}
