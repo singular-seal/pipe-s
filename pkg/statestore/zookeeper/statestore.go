@@ -60,16 +60,18 @@ func ensurePath(conn *zk.Conn, path string) error {
 
 func (s *ZKStateStore) Save(key string, value []byte) (err error) {
 	path := fmt.Sprintf("%s/%s", s.config.RootPath, key)
-	if _, err = s.conn.Set(path, value, 1); err == nil {
+	var stat *zk.Stat
+	var ok bool
+	if ok, stat, err = s.conn.Exists(path); err != nil {
 		return
 	}
-	if err != zk.ErrNoNode {
+	if ok {
+		_, err = s.conn.Set(path, value, stat.Version+1)
 		return
 	}
 	if err = ensurePath(s.conn, path); err != nil {
 		return
 	}
-
 	_, err = s.conn.Set(path, value, 1)
 	return
 }
