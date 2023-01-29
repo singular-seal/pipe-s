@@ -60,32 +60,28 @@ func ensurePath(conn *zk.Conn, path string) error {
 
 func (s *ZKStateStore) Save(key string, value []byte) (err error) {
 	path := fmt.Sprintf("%s/%s", s.config.RootPath, key)
-	var ok bool
-	var stat *zk.Stat
-	if ok, stat, err = s.conn.Exists(path); err != nil {
+	if _, err = s.conn.Set(path, value, 1); err == nil {
 		return
 	}
-	if ok {
-		_, err = s.conn.Set(path, value, stat.Version+1)
-	} else {
-		if err = ensurePath(s.conn, path); err != nil {
-			return
-		}
-		_, err = s.conn.Set(path, value, 1)
+	if err != zk.ErrNoNode {
+		return
 	}
+	if err = ensurePath(s.conn, path); err != nil {
+		return
+	}
+
+	_, err = s.conn.Set(path, value, 1)
 	return
 }
 
-func (s *ZKStateStore) Load(key string) ([]byte, error) {
+func (s *ZKStateStore) Load(key string) (data []byte, err error) {
 	path := fmt.Sprintf("%s/%s", s.config.RootPath, key)
-	data, _, err := s.conn.Get(path)
-	if err == nil {
-		return data, nil
+	if data, _, err = s.conn.Get(path); err == nil {
+		return
 	}
 	if err != zk.ErrNoNode {
-		return nil, err
+		return
 	}
-
 	return []byte{}, ensurePath(s.conn, path)
 }
 
