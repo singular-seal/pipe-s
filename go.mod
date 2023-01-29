@@ -15,6 +15,7 @@ require (
 	github.com/pingcap/parser v3.1.2+incompatible
 	github.com/pingcap/tidb v0.0.0-20190118125846-54b6de0880f0
 	github.com/prometheus/client_golang v0.9.3
+	github.com/samuel/go-zookeeper v0.0.0-20200724154423-2164a8ac840e
 	github.com/siddontang/go-log v0.0.0-20190221022429-1e957dd83bed
 	github.com/smartystreets-prototypes/go-disruptor v0.0.0-00010101000000-000000000000
 	github.com/spf13/cobra v1.1.1

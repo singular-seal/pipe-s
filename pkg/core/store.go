@@ -10,5 +10,6 @@ type StateStore interface {
 }
 
 const (
-	FileStateStore = "file"
+	FileStateStore      = "file"
+	ZooKeeperStateStore = "zookeeper"
 )
