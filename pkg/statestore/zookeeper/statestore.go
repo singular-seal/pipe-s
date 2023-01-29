@@ -69,10 +69,14 @@ func (s *ZKStateStore) Save(key string, value []byte) (err error) {
 		_, err = s.conn.Set(path, value, stat.Version+1)
 		return
 	}
+	// node doesn't exist, create it then do again
 	if err = ensurePath(s.conn, path); err != nil {
 		return
 	}
-	_, err = s.conn.Set(path, value, 1)
+	if _, stat, err = s.conn.Exists(path); err != nil {
+		return
+	}
+	_, err = s.conn.Set(path, value, stat.Version+1)
 	return
 }
 
