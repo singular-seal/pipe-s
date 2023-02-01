@@ -71,7 +71,6 @@ const (
 	MetaMySqlScanPos
 	MetaTableSchema
 	AckWaitGroup
-	RoutingKey
 )
 
 // db operation types
