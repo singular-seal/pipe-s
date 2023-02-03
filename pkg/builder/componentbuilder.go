@@ -17,6 +17,7 @@ import (
 	"github.com/singular-seal/pipe-s/pkg/processor/filter"
 	"github.com/singular-seal/pipe-s/pkg/processor/json"
 	"github.com/singular-seal/pipe-s/pkg/processor/mapping"
+	"github.com/singular-seal/pipe-s/pkg/processor/value"
 	"github.com/singular-seal/pipe-s/pkg/utils"
 )
 
@@ -207,6 +208,9 @@ func InitComponentBuilder(logger *log.Logger) {
 	})
 	dc.RegisterComponent("MysqlDMLFilter", func() core.Component {
 		return filter.NewMysqlDMLFilter()
+	})
+	dc.RegisterComponent("LogicalNameCatcher", func() core.Component {
+		return value.NewLogicalNameCatcher()
 	})
 
 }

@@ -40,7 +40,7 @@ func (p *DBChangeMappingProcessor) Configure(config core.StringMap) (err error) 
 		}
 	}
 	if tablePattern, _ := utils.GetStringFromConfig(config, "TableNamePattern"); len(tablePattern) > 0 {
-		if p.dbNamePattern, err = regexp.Compile(tablePattern); err != nil {
+		if p.tableNamePattern, err = regexp.Compile(tablePattern); err != nil {
 			return
 		}
 	}

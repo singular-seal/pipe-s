@@ -10,7 +10,6 @@ const (
 	TypeDML      = "dml"
 	TypeJsonByte = "json_byte"
 	TypeDBChange = "db_change"
-	TypeSQData   = "sql_data"
 )
 
 type MessageHeader struct {
@@ -27,14 +26,36 @@ type Message struct {
 	Data   interface{}
 }
 
-// SetMeta set meta value.
+// SetMeta set system meta value.
 func (m *Message) SetMeta(id int, data interface{}) {
 	m.Header.MetaMap[id] = data
 }
 
-// GetMeta get meta value.
+// GetMeta get system meta value.
 func (m *Message) GetMeta(id int) (interface{}, bool) {
 	data, ok := m.Header.MetaMap[id]
+	return data, ok
+}
+
+// SetVariable set user customized variable
+func (m *Message) SetVariable(name string, data interface{}) {
+	obj, ok := m.GetMeta(CustomVariable)
+	if !ok {
+		obj = make(map[string]interface{})
+		m.SetMeta(CustomVariable, obj)
+	}
+	dataMap := obj.(map[string]interface{})
+	dataMap[name] = data
+}
+
+// GetVariable get user customized variable
+func (m *Message) GetVariable(name string) (interface{}, bool) {
+	obj, ok := m.GetMeta(CustomVariable)
+	if !ok {
+		return nil, false
+	}
+	dataMap := obj.(map[string]interface{})
+	data, ok := dataMap[name]
 	return data, ok
 }
 
