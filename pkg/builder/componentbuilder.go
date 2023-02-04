@@ -212,5 +212,10 @@ func InitComponentBuilder(logger *log.Logger) {
 	dc.RegisterComponent("LogicalNameCatcher", func() core.Component {
 		return value.NewLogicalNameCatcher()
 	})
-
+	dc.RegisterComponent("ColumnValueProcessor", func() core.Component {
+		return value.NewColumnValueProcessor()
+	})
+	dc.RegisterComponent("ValueMapper", func() core.Component {
+		return value.NewValueMapper()
+	})
 }

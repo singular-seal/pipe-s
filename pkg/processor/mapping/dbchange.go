@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/singular-seal/pipe-s/pkg/core"
 	"github.com/singular-seal/pipe-s/pkg/utils"
-	"regexp"
 	"strings"
 )
 
@@ -21,9 +20,9 @@ type TableInfo struct {
 
 type DBChangeMappingProcessor struct {
 	*core.BaseComponent
-	dbNamePattern    *regexp.Regexp
-	tableNamePattern *regexp.Regexp
-	mappings         map[string]*DBInfo // source db -> target db info
+	dbNameVariable    string
+	tableNameVariable string
+	mappings          map[string]*DBInfo // source db -> target db info
 }
 
 func NewDBChangeMappingProcessor() *DBChangeMappingProcessor {
@@ -34,15 +33,11 @@ func NewDBChangeMappingProcessor() *DBChangeMappingProcessor {
 }
 
 func (p *DBChangeMappingProcessor) Configure(config core.StringMap) (err error) {
-	if dbPattern, _ := utils.GetStringFromConfig(config, "DBNamePattern"); len(dbPattern) > 0 {
-		if p.dbNamePattern, err = regexp.Compile(dbPattern); err != nil {
-			return
-		}
+	if p.dbNameVariable, err = utils.GetStringFromConfig(config, "DBNameVariable"); err != nil {
+		return
 	}
-	if tablePattern, _ := utils.GetStringFromConfig(config, "TableNamePattern"); len(tablePattern) > 0 {
-		if p.tableNamePattern, err = regexp.Compile(tablePattern); err != nil {
-			return
-		}
+	if p.tableNameVariable, err = utils.GetStringFromConfig(config, "TableNameVariable"); err != nil {
+		return
 	}
 
 	mappings, err := utils.GetConfigArrayFromConfig(config, "$.Mappings")
@@ -174,27 +169,16 @@ func configureColumnMapping(tableInfo *TableInfo, sourceTableMap core.StringMap,
 
 func (p *DBChangeMappingProcessor) Process(msg *core.Message) (skip bool, err error) {
 	event := msg.Data.(*core.DBChangeEvent)
-	var useLogicalDB, useLogicalTable bool
-	var logicalDB, logicalTable string
-
-	if p.dbNamePattern != nil {
-		matches := p.dbNamePattern.FindStringSubmatch(event.Database)
-		if len(matches) > 1 {
-			useLogicalDB = true
-			logicalDB = matches[1]
-		}
-	}
-	if p.tableNamePattern != nil {
-		matches := p.tableNamePattern.FindStringSubmatch(event.Table)
-		if len(matches) > 1 {
-			useLogicalTable = true
-			logicalTable = matches[1]
-		}
-	}
 	// mapping database name
 	var dbInfo *DBInfo
 	var ok bool
-	if useLogicalDB {
+	if len(p.dbNameVariable) > 0 {
+		obj, ok := msg.GetVariable(p.dbNameVariable)
+		if !ok {
+			return false, fmt.Errorf("no DBNameVariable found: msg %s, db %s, table %s", msg.Header.ID,
+				event.Database, event.Table)
+		}
+		logicalDB := obj.(string)
 		if dbInfo, ok = p.mappings[logicalDB]; !ok {
 			return
 		}
@@ -210,7 +194,13 @@ func (p *DBChangeMappingProcessor) Process(msg *core.Message) (skip bool, err er
 		return
 	}
 	var tableInfo *TableInfo
-	if useLogicalTable {
+	if len(p.tableNameVariable) > 0 {
+		obj, ok := msg.GetVariable(p.tableNameVariable)
+		if !ok {
+			return false, fmt.Errorf("no TableNameVariable found: msg %s, db %s, table %s", msg.Header.ID,
+				event.Database, event.Table)
+		}
+		logicalTable := obj.(string)
 		if tableInfo, ok = dbInfo.tableMapping[logicalTable]; !ok {
 			return
 		}
