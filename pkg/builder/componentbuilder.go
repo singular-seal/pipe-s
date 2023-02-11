@@ -8,6 +8,7 @@ import (
 	"github.com/singular-seal/pipe-s/pkg/log"
 	"github.com/singular-seal/pipe-s/pkg/output/debug"
 	"github.com/singular-seal/pipe-s/pkg/output/dummy"
+	"github.com/singular-seal/pipe-s/pkg/output/kafka"
 	"github.com/singular-seal/pipe-s/pkg/output/logoutput"
 	"github.com/singular-seal/pipe-s/pkg/output/mysql/batch"
 	"github.com/singular-seal/pipe-s/pkg/output/mysql/check"
@@ -59,7 +60,7 @@ func (b *DefaultComponentBuilder) createComponent(config core.StringMap) (core.C
 	return comp, err
 }
 
-func (b *DefaultComponentBuilder) createInput(config core.StringMap, parent core.Output) (input core.Input, err error) {
+func (b *DefaultComponentBuilder) createInput(parent core.Output, config core.StringMap) (input core.Input, err error) {
 	c, err := b.createComponent(config)
 	if err != nil {
 		return
@@ -70,6 +71,7 @@ func (b *DefaultComponentBuilder) createInput(config core.StringMap, parent core
 		return
 	}
 	input.SetOutput(parent)
+	input.SetErrors(parent.Errors())
 	// input maybe pipeline
 	pipe, ok := input.(core.Pipeline)
 	if !ok {
@@ -81,7 +83,7 @@ func (b *DefaultComponentBuilder) createInput(config core.StringMap, parent core
 		b.logger.Info("pipeline has not input", log.String("ID", pipe.GetID()))
 		return
 	}
-	iip, err := b.createInput(ic, pipe)
+	iip, err := b.createInput(pipe, ic)
 	if err != nil {
 		return
 	}
@@ -100,6 +102,7 @@ func (b *DefaultComponentBuilder) createOutput(parent core.Input, config core.St
 		return
 	}
 	output.SetInput(parent)
+	output.SetErrors(parent.Errors())
 
 	pipe, ok := output.(core.Pipeline)
 	if !ok {
@@ -143,7 +146,7 @@ func (b *DefaultComponentBuilder) CreatePipeline(config core.StringMap) (pipe co
 	if err != nil || ic == nil {
 		b.logger.Info("pipeline has not input", log.String("ID", pipe.GetID()))
 	} else {
-		input, err := b.createInput(ic, pipe)
+		input, err := b.createInput(pipe, ic)
 		if err != nil {
 			return nil, err
 		}
@@ -195,6 +198,9 @@ func InitComponentBuilder(logger *log.Logger) {
 	})
 	dc.RegisterComponent("MysqlStreamOutput", func() core.Component {
 		return stream.NewMysqlStreamOutput()
+	})
+	dc.RegisterComponent("KafkaOutput", func() core.Component {
+		return kafka.NewKafkaOutput()
 	})
 
 	dc.RegisterComponent("JsonMarshaller", func() core.Component {

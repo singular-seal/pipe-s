@@ -37,6 +37,7 @@ func (p *BasePipeline) Configure(config core.StringMap) (err error) {
 		if processor, err := core.GetComponentBuilderInstance().CreateProcessor(each); err != nil {
 			return err
 		} else {
+			processor.SetErrors(p.Errors())
 			p.processors = append(p.processors, processor)
 		}
 	}
@@ -73,10 +74,6 @@ func (p *BasePipeline) ApplyProcessors(msg *core.Message) (skip bool, err error)
 		}
 	}
 	return
-}
-
-func (p *BasePipeline) Errors() chan error {
-	return p.input.Errors()
 }
 
 func (p *BasePipeline) Start() (err error) {

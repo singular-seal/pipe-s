@@ -2,10 +2,11 @@ package core
 
 import "github.com/singular-seal/pipe-s/pkg/log"
 
-// Component is an entity which has id and lifecycle and can be configured.
+// Component is an entity which has id and lifecycle and can be configured and error able.
 type Component interface {
 	Configurable
 	LifeCycle
+	Errorable
 }
 
 // Pipeline is a component receives data from an input and sends it to an output, and during the process
@@ -23,7 +24,6 @@ type Processor interface {
 
 type Input interface {
 	Component
-	Errorable
 	SetOutput(output Output)
 	Ack(msg *Message, err error)
 	SetState(state []byte) error
@@ -38,6 +38,7 @@ type Output interface {
 
 type Errorable interface {
 	Errors() chan error
+	SetErrors(errChan chan error)
 }
 
 // LogAware is used to inject logger to other components
@@ -46,8 +47,24 @@ type LogAware interface {
 }
 
 type BaseComponent struct {
-	ID     string
-	logger *log.Logger
+	ID        string
+	logger    *log.Logger
+	errorChan chan error
+}
+
+func (c *BaseComponent) RaiseError(err error) {
+	if len(c.errorChan) > 0 {
+		return
+	}
+	c.errorChan <- err
+}
+
+func (c *BaseComponent) SetErrors(errChan chan error) {
+	c.errorChan = errChan
+}
+
+func (c *BaseComponent) Errors() chan error {
+	return c.errorChan
 }
 
 func (c *BaseComponent) Configure(config StringMap) error {
@@ -79,27 +96,20 @@ func (c *BaseComponent) GetLogger() *log.Logger {
 }
 
 func NewBaseComponent() *BaseComponent {
-	return &BaseComponent{}
+	return &BaseComponent{
+		errorChan: make(chan error, 1),
+	}
 }
 
 type BaseInput struct {
 	*BaseComponent
-	output    Output
-	errorChan chan error
+	output Output
 }
 
 func NewBaseInput() *BaseInput {
 	return &BaseInput{
-		BaseComponent: &BaseComponent{},
-		errorChan:     make(chan error, 1),
+		BaseComponent: NewBaseComponent(),
 	}
-}
-
-func (in *BaseInput) RaiseError(err error) {
-	if len(in.errorChan) > 0 {
-		return
-	}
-	in.errorChan <- err
 }
 
 func (in *BaseInput) SetOutput(output Output) {
@@ -108,10 +118,6 @@ func (in *BaseInput) SetOutput(output Output) {
 
 func (in *BaseInput) GetOutput() Output {
 	return in.output
-}
-
-func (in *BaseInput) Errors() chan error {
-	return in.errorChan
 }
 
 type BaseOutput struct {
