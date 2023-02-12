@@ -33,7 +33,7 @@ type KafkaOutput struct {
 
 type KafkaOutputConfig struct {
 	ID                    string
-	KeyVariable           string
+	KeyVariable           string // kafka partition key variable name
 	TopicName             string // kafka topic name can be specified by TopicName or passed as a variable by
 	TopicVariable         string // TopicVariable
 	ServerAddresses       []string

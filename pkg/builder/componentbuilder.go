@@ -206,6 +206,9 @@ func InitComponentBuilder(logger *log.Logger) {
 	dc.RegisterComponent("JsonMarshaller", func() core.Component {
 		return json.NewJsonMarshaller()
 	})
+	dc.RegisterComponent("DBChangeUnmarshaller", func() core.Component {
+		return json.NewDBChangeUnmarshaller()
+	})
 	dc.RegisterComponent("MysqlDMLToDBChangeConverter", func() core.Component {
 		return converter.NewMysqlDMLToDBChangeConverter()
 	})
