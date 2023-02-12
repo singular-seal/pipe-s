@@ -3,6 +3,7 @@ package builder
 import (
 	"fmt"
 	"github.com/singular-seal/pipe-s/pkg/core"
+	kafka2 "github.com/singular-seal/pipe-s/pkg/input/kafka"
 	"github.com/singular-seal/pipe-s/pkg/input/mysql/binlog"
 	"github.com/singular-seal/pipe-s/pkg/input/mysql/scan"
 	"github.com/singular-seal/pipe-s/pkg/log"
@@ -177,6 +178,9 @@ func InitComponentBuilder(logger *log.Logger) {
 	})
 	dc.RegisterComponent("MysqlScanInput", func() core.Component {
 		return scan.NewMysqlScanInput()
+	})
+	dc.RegisterComponent("KafkaInput", func() core.Component {
+		return kafka2.NewKafkaInput()
 	})
 	dc.RegisterComponent("DisruptorPipeline", func() core.Component {
 		return simple.NewDisruptorPipeline()
