@@ -36,12 +36,12 @@ func (m *ValueMapper) Configure(config core.StringMap) (err error) {
 }
 
 func (m *ValueMapper) Process(msg *core.Message) (bool, error) {
-	event := msg.Data.(*core.DBChangeEvent)
 	v, ok := msg.GetVariable(m.config.InputVariable)
 	if !ok {
+		event := msg.Data.(*core.DBChangeEvent)
 		return false, fmt.Errorf("no input variable, msg id %s, db %s, table %s", msg.Header.ID,
 			event.Database, event.Table)
 	}
-	msg.SetVariable(m.config.OutputVariable, event.GetRow()[m.config.Mappings[v.(string)]])
+	msg.SetVariable(m.config.OutputVariable, m.config.Mappings[v.(string)])
 	return false, nil
 }
