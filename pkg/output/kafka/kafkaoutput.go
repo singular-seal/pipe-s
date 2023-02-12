@@ -82,7 +82,7 @@ func (o *KafkaOutput) Configure(config core.StringMap) (err error) {
 	}
 	o.config = c
 	o.saramaConfig = sarama.NewConfig()
-	o.saramaConfig.Version = sarama.V3_3_1_0
+	o.saramaConfig.Version = utils.SaramaVersion
 	o.saramaConfig.ClientID = "pipes"
 	o.saramaConfig.Metadata.Timeout = time.Second * 30
 	o.saramaConfig.Producer.Return.Successes = true

@@ -9,6 +9,7 @@ import (
 const (
 	TypeDML      = "dml"
 	TypeJsonByte = "json_byte"
+	TypeByte     = "byte"
 	TypeDBChange = "db_change"
 )
 
@@ -92,6 +93,8 @@ const (
 	MetaMySqlScanPos
 	MetaTableSchema
 	AckWaitGroup
+	MetaKafkaConsumerSession
+	MetaKafkaConsumerPosition
 )
 
 // db operation types
