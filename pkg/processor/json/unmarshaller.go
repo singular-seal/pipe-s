@@ -17,10 +17,10 @@ func NewDBChangeUnmarshaller() *DBChangeUnmarshaller {
 
 func (um *DBChangeUnmarshaller) Process(msg *core.Message) (skip bool, err error) {
 	var event core.DBChangeEvent
-	if err = json.Unmarshal(msg.Data.([]byte), event); err != nil {
+	if err = json.Unmarshal(msg.Data.([]byte), &event); err != nil {
 		return
 	}
 	msg.Type = core.TypeDBChange
-	msg.Data = event
+	msg.Data = &event
 	return
 }

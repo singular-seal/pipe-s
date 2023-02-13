@@ -19,10 +19,10 @@ type KafkaInputConfig struct {
 }
 
 type KafkaPosition struct {
-	topic     string
-	partition int32
-	offset    int64
-	timestamp int64
+	Topic     string
+	Partition int32
+	Offset    int64
+	Timestamp int64
 }
 
 type KafkaInput struct {
@@ -113,7 +113,7 @@ func (in *KafkaInput) Ack(msg *core.Message, err error) {
 	}
 
 	position := obj.(*KafkaPosition)
-	session.(sarama.ConsumerGroupSession).MarkOffset(position.topic, position.partition, position.offset+1, "")
+	session.(sarama.ConsumerGroupSession).MarkOffset(position.Topic, position.Partition, position.Offset+1, "")
 	in.lastAckPosition = position
 }
 
@@ -151,10 +151,10 @@ func (consumer *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, clai
 		m.Data = message.Value
 		m.SetMeta(core.MetaKafkaConsumerSession, session)
 		position := &KafkaPosition{
-			topic:     message.Topic,
-			partition: message.Partition,
-			offset:    message.Offset,
-			timestamp: message.Timestamp.Unix(),
+			Topic:     message.Topic,
+			Partition: message.Partition,
+			Offset:    message.Offset,
+			Timestamp: message.Timestamp.Unix(),
 		}
 		m.SetMeta(core.MetaKafkaConsumerPosition, position)
 		consumer.input.GetOutput().Process(m)
