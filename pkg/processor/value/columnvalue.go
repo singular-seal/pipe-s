@@ -42,6 +42,11 @@ func (p *ColumnValueProcessor) Process(msg *core.Message) (bool, error) {
 		return false, fmt.Errorf("no table variable, msg id %s, db %s, table %s", msg.Header.ID,
 			event.Database, event.Table)
 	}
-	msg.SetVariable(p.config.OutputVariable, event.GetRow()[tb.(string)])
+	col, ok := p.config.TableColumnMappings[tb.(string)]
+	if !ok {
+		return false, fmt.Errorf("column mapping not found, msg id %s, db %s, table %s", msg.Header.ID,
+			event.Database, event.Table)
+	}
+	msg.SetVariable(p.config.OutputVariable, event.GetRow()[col])
 	return false, nil
 }
