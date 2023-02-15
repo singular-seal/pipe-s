@@ -8,6 +8,7 @@ import (
 	"github.com/singular-seal/pipe-s/pkg/core"
 	"github.com/singular-seal/pipe-s/pkg/log"
 	"github.com/singular-seal/pipe-s/pkg/utils"
+	"sync"
 	"time"
 )
 
@@ -32,6 +33,9 @@ type KafkaInput struct {
 	kafkaClient     sarama.ConsumerGroup
 	cancelFunction  context.CancelFunc
 	lastAckPosition *KafkaPosition
+	// sarama consumes multiple partitions by multiple goroutine, so need a lock here, better solution should be
+	// modifying go disruptor to support multi producers mode
+	sendLock sync.Mutex
 }
 
 func NewKafkaInput() *KafkaInput {
@@ -157,7 +161,10 @@ func (consumer *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, clai
 			Timestamp: message.Timestamp.Unix(),
 		}
 		m.SetMeta(core.MetaKafkaConsumerPosition, position)
+
+		consumer.input.sendLock.Lock()
 		consumer.input.GetOutput().Process(m)
+		consumer.input.sendLock.Unlock()
 	}
 	return
 }

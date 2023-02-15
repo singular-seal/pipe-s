@@ -2,6 +2,7 @@ package json
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/singular-seal/pipe-s/pkg/core"
 )
 
@@ -17,7 +18,11 @@ func NewDBChangeUnmarshaller() *DBChangeUnmarshaller {
 
 func (um *DBChangeUnmarshaller) Process(msg *core.Message) (skip bool, err error) {
 	var event core.DBChangeEvent
-	if err = json.Unmarshal(msg.Data.([]byte), &event); err != nil {
+	d, ok := msg.Data.([]byte)
+	if !ok {
+		return false, fmt.Errorf("")
+	}
+	if err = json.Unmarshal(d, &event); err != nil {
 		return
 	}
 	msg.Type = core.TypeDBChange
