@@ -33,12 +33,8 @@ func NewDBChangeMappingProcessor() *DBChangeMappingProcessor {
 }
 
 func (p *DBChangeMappingProcessor) Configure(config core.StringMap) (err error) {
-	if p.dbNameVariable, err = utils.GetStringFromConfig(config, "DBNameVariable"); err != nil {
-		return
-	}
-	if p.tableNameVariable, err = utils.GetStringFromConfig(config, "TableNameVariable"); err != nil {
-		return
-	}
+	p.dbNameVariable, _ = utils.GetStringFromConfig(config, "$.DBNameVariable")
+	p.tableNameVariable, _ = utils.GetStringFromConfig(config, "$.TableNameVariable")
 
 	mappings, err := utils.GetConfigArrayFromConfig(config, "$.Mappings")
 	if err != nil {
