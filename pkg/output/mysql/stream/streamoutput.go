@@ -9,6 +9,7 @@ import (
 	"github.com/singular-seal/pipe-s/pkg/schema"
 	"github.com/singular-seal/pipe-s/pkg/utils"
 	"sync"
+	"time"
 )
 
 const (
@@ -73,6 +74,7 @@ func (o *MysqlStreamOutput) Start() (err error) {
 		go o.processTaskQueue(i)
 	}
 
+	go o.checkProgress()
 	return nil
 }
 
@@ -180,4 +182,20 @@ func genTableHash(db string, table string) int {
 	result := utils.GetFNV64aHash(db)
 	result += utils.GetFNV64aHash(table)
 	return utils.AbsInt(result)
+}
+
+func (o *MysqlStreamOutput) checkProgress() {
+	ticker := time.NewTicker(utils.DefaultCheckProgressInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			for i, queue := range o.taskQueues {
+				o.GetLogger().Info("MysqlStreamOutput task queue", log.Int("No.", i),
+					log.Int("length", len(queue)))
+			}
+		case <-o.stopWaitContext.Done():
+			return
+		}
+	}
 }

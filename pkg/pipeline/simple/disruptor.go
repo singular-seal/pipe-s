@@ -13,9 +13,8 @@ import (
 )
 
 const (
-	DefaultDisruptorBufferSize   = 8192
-	DefaultDisruptorConcurrency  = 4
-	DefaultCheckProgressInterval = time.Second * 30
+	DefaultDisruptorBufferSize  = 8192
+	DefaultDisruptorConcurrency = 4
 )
 
 type DisruptorPipelineConfig struct {
@@ -161,7 +160,7 @@ func (p *DisruptorPipeline) StartPipeline() (err error) {
 	)
 	p.disruptor = d
 	go p.disruptor.Read()
-	go p.checkStatus()
+	go p.checkProgress()
 	return
 }
 
@@ -206,9 +205,9 @@ func (p *DisruptorPipeline) Configure(config core.StringMap) (err error) {
 	return
 }
 
-// checkStatus check status of pipeline at a constant interval, if it finds stuck will close the pipeline
-func (p *DisruptorPipeline) checkStatus() {
-	ticker := time.NewTicker(DefaultCheckProgressInterval)
+// checkProgress check status of pipeline at a constant interval, if it finds stuck will close the pipeline
+func (p *DisruptorPipeline) checkProgress() {
+	ticker := time.NewTicker(utils.DefaultCheckProgressInterval)
 	defer ticker.Stop()
 	prevOut := p.outQueueCount
 	for {
@@ -220,7 +219,7 @@ func (p *DisruptorPipeline) checkStatus() {
 
 			p.GetLogger().Info("in pipe msg", log.String("id", p.GetID()), log.Uint64("count", p.inQueueCount-p.outQueueCount))
 			if prevOut != 0 && p.outQueueCount-prevOut == 0 && p.inQueueCount-p.outQueueCount != 0 {
-				p.GetLogger().Error("pipe stuck, exiting checkStatus", log.String("id", p.GetID()))
+				p.GetLogger().Error("pipe stuck, exiting checkProgress", log.String("id", p.GetID()))
 				p.RaiseError(fmt.Errorf("pipe stuck"))
 				return
 			}
