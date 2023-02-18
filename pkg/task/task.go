@@ -181,14 +181,16 @@ func (t *DefaultTask) Start() (err error) {
 	builder.InitComponentBuilder(t.logger)
 
 	if err = t.configure(); err != nil {
-		err = errors.Wrap(err, "fail to configure task")
-		t.logger.Error("failed to configure task", log.Error(err))
+		s := "fail to configure task"
+		err = errors.Wrap(err, s)
+		t.logger.Error(s, log.Error(err))
 		return err
 	}
 
 	if err = t.start(); err != nil {
-		err = errors.Wrap(err, "failed to start task")
-		t.logger.Error("failed to start task", log.String("id", t.ID), log.Error(err))
+		s := "failed to start task"
+		err = errors.Wrap(err, s)
+		t.logger.Error(s, log.String("id", t.ID), log.Error(err))
 		return err
 	}
 	t.logger.Info("task started", log.String("id", t.ID))
