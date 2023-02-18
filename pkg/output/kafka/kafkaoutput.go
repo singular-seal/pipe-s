@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/Shopify/sarama"
+	"github.com/pkg/errors"
 	"github.com/singular-seal/pipe-s/pkg/core"
 	"github.com/singular-seal/pipe-s/pkg/log"
 	"github.com/singular-seal/pipe-s/pkg/utils"
@@ -157,7 +158,7 @@ func (o *KafkaOutput) sendWithTimeout(message *sarama.ProducerMessage) error {
 	select {
 	case o.producer.Input() <- message:
 	case <-time.After(DefaultSendTimeout):
-		return fmt.Errorf("KafkaOutput send timeout %s", message.Topic)
+		return errors.Errorf("KafkaOutput send timeout %s", message.Topic)
 	}
 	return nil
 }
@@ -165,7 +166,7 @@ func (o *KafkaOutput) sendWithTimeout(message *sarama.ProducerMessage) error {
 func (o *KafkaOutput) createKafkaMessage(m *core.Message) (*sarama.ProducerMessage, error) {
 	data, ok := m.Data.([]byte)
 	if !ok {
-		return nil, fmt.Errorf("KafkaOutput no bytes in msg, id %s", m.Header.ID)
+		return nil, errors.Errorf("KafkaOutput no bytes in msg, id %s", m.Header.ID)
 	}
 	var message *sarama.ProducerMessage
 	var topicName string
@@ -174,7 +175,7 @@ func (o *KafkaOutput) createKafkaMessage(m *core.Message) (*sarama.ProducerMessa
 		if obj, ok := m.GetVariable(o.config.TopicVariable); ok {
 			topicName = obj.(string)
 		} else {
-			return nil, fmt.Errorf("KafkaOutput can't get TopicVariable, id %s", m.Header.ID)
+			return nil, errors.Errorf("KafkaOutput can't get TopicVariable, id %s", m.Header.ID)
 		}
 	} else {
 		topicName = o.config.TopicName
@@ -190,7 +191,7 @@ func (o *KafkaOutput) createKafkaMessage(m *core.Message) (*sarama.ProducerMessa
 		if k, ok := m.GetVariable(o.config.KeyVariable); ok {
 			message.Key = sarama.ByteEncoder(fmt.Sprint(k))
 		} else {
-			return nil, fmt.Errorf("key var not found, msg id %s", m.Header.ID)
+			return nil, errors.Errorf("key var not found, msg id %s", m.Header.ID)
 		}
 	}
 	return message, nil
@@ -218,23 +219,23 @@ func (o *KafkaOutput) handleAck() {
 		select {
 		case msg, ok := <-o.producer.Successes():
 			if !ok {
-				o.RaiseError(fmt.Errorf("KafkaOutput fail get producer successes"))
+				o.RaiseError(errors.Errorf("KafkaOutput fail get producer successes"))
 				return
 			}
 			orgMsg, ok := msg.Metadata.(*core.Message)
 			if !ok {
-				o.RaiseError(fmt.Errorf("KafkaOutput invalid metadata, key %s, value %s", msg.Key, msg.Value))
+				o.RaiseError(errors.Errorf("KafkaOutput invalid metadata, key %s, value %s", msg.Key, msg.Value))
 				return
 			}
 			o.GetInput().Ack(orgMsg, nil)
 		case prodErr, ok := <-o.producer.Errors():
 			if !ok {
-				o.RaiseError(fmt.Errorf("KafkaOutput fail get producer errors"))
+				o.RaiseError(errors.Errorf("KafkaOutput fail get producer errors"))
 				return
 			}
 			orgMsg, ok := prodErr.Msg.Metadata.(*core.Message)
 			if !ok {
-				o.RaiseError(fmt.Errorf("KafkaOutput invalid metadata, key %s, value %s", prodErr.Msg.Key,
+				o.RaiseError(errors.Errorf("KafkaOutput invalid metadata, key %s, value %s", prodErr.Msg.Key,
 					prodErr.Msg.Value))
 				return
 			} else if !o.config.BlockWhenSizeTooLarge && prodErr.Err == sarama.ErrMessageSizeTooLarge {

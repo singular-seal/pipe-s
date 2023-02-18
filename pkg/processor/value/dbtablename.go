@@ -1,7 +1,7 @@
 package value
 
 import (
-	"fmt"
+	"github.com/pkg/errors"
 	"github.com/singular-seal/pipe-s/pkg/core"
 	"github.com/singular-seal/pipe-s/pkg/utils"
 	"regexp"
@@ -39,10 +39,10 @@ func (catcher *DBTableNameCatcher) Configure(config core.StringMap) (err error) 
 	}
 	catcher.config = c
 	if len(c.DBNameVariable) == 0 && len(c.TableNameVariable) == 0 {
-		return fmt.Errorf("db pattern and table pattern are both blank")
+		return errors.New("db pattern and table pattern are both blank")
 	}
 	if len(c.DBNamePattern) > 0 && len(c.DBNameVariable) == 0 || len(c.TableNamePattern) > 0 && len(c.TableNameVariable) == 0 {
-		return fmt.Errorf("variable not configured")
+		return errors.New("variable not configured")
 	}
 
 	if len(c.DBNamePattern) > 0 {
@@ -63,7 +63,7 @@ func (catcher *DBTableNameCatcher) Process(msg *core.Message) (bool, error) {
 	event := msg.Data.(*core.MysqlDMLEvent)
 	dt := strings.Split(event.FullTableName, ".")
 	if len(dt) != 2 {
-		return false, fmt.Errorf("illegal full table name:%s, msg id:%s", event.FullTableName, msg.Header.ID)
+		return false, errors.Errorf("illegal full table name:%s, msg id:%s", event.FullTableName, msg.Header.ID)
 	}
 	db, table := dt[0], dt[1]
 	if catcher.dbNamePattern != nil {

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/pkg/errors"
 	"github.com/singular-seal/pipe-s/pkg/core"
 	"github.com/singular-seal/pipe-s/pkg/log"
 	"github.com/singular-seal/pipe-s/pkg/schema"
@@ -283,7 +284,7 @@ func (in *MysqlScanInput) SetState(state []byte) (err error) {
 	for k, v := range dumpState {
 		parts := strings.Split(k, ".")
 		if len(parts) != 2 {
-			return fmt.Errorf("wrong table name:%s", k)
+			return errors.Errorf("wrong table name:%s", k)
 		}
 		if v.ColumnStates != nil {
 			if err = fixColumnStates(v.ColumnStates); err != nil {
@@ -312,7 +313,7 @@ func fixColumnStates(columnStates []interface{}) error {
 					Valid:   data["Valid"].(bool),
 				}
 			} else {
-				return fmt.Errorf("unsupported column state:%v", state)
+				return errors.Errorf("unsupported column state:%v", state)
 			}
 		}
 	}

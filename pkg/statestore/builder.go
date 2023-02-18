@@ -1,7 +1,7 @@
 package statestore
 
 import (
-	"fmt"
+	"github.com/pkg/errors"
 	"github.com/singular-seal/pipe-s/pkg/core"
 	"github.com/singular-seal/pipe-s/pkg/statestore/file"
 	"github.com/singular-seal/pipe-s/pkg/statestore/zookeeper"
@@ -24,7 +24,7 @@ func CreateStateStore(config core.StringMap) (store core.StateStore, err error) 
 		err = store.Configure(config)
 		return
 	default:
-		err = fmt.Errorf("unknown statestore type:%s", st)
+		err = errors.Errorf("unknown statestore type:%s", st)
 		return
 	}
 }

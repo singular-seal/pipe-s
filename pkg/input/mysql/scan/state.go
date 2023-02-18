@@ -3,6 +3,7 @@ package scan
 import (
 	"database/sql"
 	"fmt"
+	"github.com/pkg/errors"
 	"github.com/singular-seal/pipe-s/pkg/core"
 	"sync/atomic"
 )
@@ -41,7 +42,7 @@ func GetRowCount(dbName string, tableName string, conn *sql.DB) (int64, error) {
 	}
 
 	if !count.Valid {
-		return 0, fmt.Errorf("table_rows_invalid")
+		return 0, errors.Errorf("table_rows_invalid")
 	}
 	return count.Int64, nil
 }

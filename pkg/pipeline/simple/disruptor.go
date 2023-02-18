@@ -1,7 +1,7 @@
 package simple
 
 import (
-	"fmt"
+	"github.com/pkg/errors"
 	"github.com/singular-seal/pipe-s/pkg/core"
 	"github.com/singular-seal/pipe-s/pkg/log"
 	"github.com/singular-seal/pipe-s/pkg/metrics"
@@ -220,7 +220,7 @@ func (p *DisruptorPipeline) checkProgress() {
 			p.GetLogger().Info("in pipe msg", log.String("id", p.GetID()), log.Uint64("count", p.inQueueCount-p.outQueueCount))
 			if prevOut != 0 && p.outQueueCount-prevOut == 0 && p.inQueueCount-p.outQueueCount != 0 {
 				p.GetLogger().Error("pipe stuck, exiting checkProgress", log.String("id", p.GetID()))
-				p.RaiseError(fmt.Errorf("pipe stuck"))
+				p.RaiseError(errors.Errorf("pipe stuck"))
 				return
 			}
 		}

@@ -1,7 +1,7 @@
 package value
 
 import (
-	"fmt"
+	"github.com/pkg/errors"
 	"github.com/singular-seal/pipe-s/pkg/core"
 	"github.com/singular-seal/pipe-s/pkg/utils"
 )
@@ -30,7 +30,7 @@ func (p *ColumnValueProcessor) Configure(config core.StringMap) (err error) {
 	}
 	p.config = c
 	if len(p.config.TableNameVariable) == 0 || len(p.config.OutputVariable) == 0 || len(p.config.TableColumnMappings) == 0 {
-		return fmt.Errorf("config missing")
+		return errors.New("config missing")
 	}
 	return nil
 }
@@ -39,12 +39,12 @@ func (p *ColumnValueProcessor) Process(msg *core.Message) (bool, error) {
 	event := msg.Data.(*core.DBChangeEvent)
 	tb, ok := msg.GetVariable(p.config.TableNameVariable)
 	if !ok {
-		return false, fmt.Errorf("no table variable, msg id %s, db %s, table %s", msg.Header.ID,
+		return false, errors.Errorf("no table variable, msg id %s, db %s, table %s", msg.Header.ID,
 			event.Database, event.Table)
 	}
 	col, ok := p.config.TableColumnMappings[tb.(string)]
 	if !ok {
-		return false, fmt.Errorf("column mapping not found, msg id %s, db %s, table %s", msg.Header.ID,
+		return false, errors.Errorf("column mapping not found, msg id %s, db %s, table %s", msg.Header.ID,
 			event.Database, event.Table)
 	}
 	msg.SetVariable(p.config.OutputVariable, event.GetRow()[col])

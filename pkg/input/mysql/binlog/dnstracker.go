@@ -2,7 +2,7 @@ package binlog
 
 import (
 	"context"
-	"fmt"
+	"github.com/pkg/errors"
 	"github.com/singular-seal/pipe-s/pkg/log"
 	"github.com/singular-seal/pipe-s/pkg/utils"
 	"reflect"
@@ -70,7 +70,7 @@ func (t *DNSTracker) resolveHost() (ipList []string, err error) {
 	}
 
 	if len(ipList) == 0 {
-		err = fmt.Errorf("empty ip list for host:%s", t.host)
+		err = errors.Errorf("empty ip list for host:%s", t.host)
 		return
 	}
 

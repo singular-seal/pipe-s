@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/pkg/errors"
 	"github.com/singular-seal/pipe-s/pkg/core"
 	"github.com/singular-seal/pipe-s/pkg/schema"
 	"github.com/singular-seal/pipe-s/pkg/utils"
@@ -117,7 +118,7 @@ func (o *MysqlBatchOutput) Process(m *core.Message) {
 	// TODO: can support more generic unique key in future
 	pk := getPKValue(dbChange, ts)
 	if len(pk) > DefaultMaxComboKeyColumns {
-		o.GetInput().Ack(m, fmt.Errorf("don't support pk columns more than %d", DefaultMaxComboKeyColumns))
+		o.GetInput().Ack(m, errors.Errorf("don't support pk columns more than %d", DefaultMaxComboKeyColumns))
 		return
 	}
 	// get processors for current table

@@ -1,7 +1,7 @@
 package converter
 
 import (
-	"fmt"
+	"github.com/pkg/errors"
 	"github.com/singular-seal/pipe-s/pkg/core"
 	"github.com/singular-seal/pipe-s/pkg/utils"
 )
@@ -64,7 +64,7 @@ func (c *MysqlDMLToDBChangeConverter) Process(msg *core.Message) (bool, error) {
 
 func (c *MysqlDMLToDBChangeConverter) convertRow(row []interface{}, ts *core.Table) (map[string]interface{}, error) {
 	if len(row) != len(ts.Columns) {
-		return nil, fmt.Errorf("col count mismatch - schema:%d binlog:%d", len(ts.Columns), len(row))
+		return nil, errors.Errorf("col count mismatch - schema:%d binlog:%d", len(ts.Columns), len(row))
 	}
 	result := make(map[string]interface{})
 	for i, col := range ts.Columns {

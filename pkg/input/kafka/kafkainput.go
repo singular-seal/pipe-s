@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/Shopify/sarama"
+	"github.com/pkg/errors"
 	"github.com/singular-seal/pipe-s/pkg/core"
 	"github.com/singular-seal/pipe-s/pkg/log"
 	"github.com/singular-seal/pipe-s/pkg/utils"
@@ -107,12 +108,12 @@ func (in *KafkaInput) Ack(msg *core.Message, err error) {
 	}
 	session, ok := msg.GetMeta(core.MetaKafkaConsumerSession)
 	if !ok {
-		in.RaiseError(fmt.Errorf("no session meta in msg %s", msg.Header.ID))
+		in.RaiseError(errors.Errorf("no session meta in msg %s", msg.Header.ID))
 		return
 	}
 	obj, ok := msg.GetMeta(core.MetaKafkaConsumerPosition)
 	if !ok {
-		in.RaiseError(fmt.Errorf("no position meta in msg %s", msg.Header.ID))
+		in.RaiseError(errors.Errorf("no position meta in msg %s", msg.Header.ID))
 		return
 	}
 

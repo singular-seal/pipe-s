@@ -1,7 +1,7 @@
 package builder
 
 import (
-	"fmt"
+	"github.com/pkg/errors"
 	"github.com/singular-seal/pipe-s/pkg/core"
 	kafka2 "github.com/singular-seal/pipe-s/pkg/input/kafka"
 	"github.com/singular-seal/pipe-s/pkg/input/mysql/binlog"
@@ -51,7 +51,7 @@ func (b *DefaultComponentBuilder) createComponent(config core.StringMap) (core.C
 	}
 	constructor, ok := b.constructorMap[t]
 	if !ok {
-		return nil, fmt.Errorf("constructor not found:%s", t)
+		return nil, errors.Errorf("constructor not found:%s", t)
 	}
 	comp := constructor()
 	err = comp.Configure(config)
@@ -68,7 +68,7 @@ func (b *DefaultComponentBuilder) createInput(parent core.Output, config core.St
 	}
 	input, ok := c.(core.Input)
 	if !ok {
-		err = fmt.Errorf("not input:%s", c.GetID())
+		err = errors.Errorf("not input:%s", c.GetID())
 		return
 	}
 	input.SetOutput(parent)
@@ -99,7 +99,7 @@ func (b *DefaultComponentBuilder) createOutput(parent core.Input, config core.St
 	}
 	output, ok := c.(core.Output)
 	if !ok {
-		err = fmt.Errorf("not output:%s", c.GetID())
+		err = errors.Errorf("not output:%s", c.GetID())
 		return
 	}
 	output.SetInput(parent)
@@ -128,7 +128,7 @@ func (b *DefaultComponentBuilder) CreateProcessor(config core.StringMap) (proces
 		return nil, err
 	} else {
 		if p, ok := comp.(core.Processor); !ok {
-			return nil, fmt.Errorf("not processor:%s", comp.GetID())
+			return nil, errors.Errorf("not processor:%s", comp.GetID())
 		} else {
 			return p, nil
 		}

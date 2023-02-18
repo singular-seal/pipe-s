@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pingcap/parser"
 	_ "github.com/pingcap/tidb/types/parser_driver"
+	"github.com/pkg/errors"
 	"github.com/singular-seal/pipe-s/pkg/core"
 	"github.com/singular-seal/pipe-s/pkg/log"
 	"github.com/singular-seal/pipe-s/pkg/metrics"
@@ -63,7 +64,7 @@ type address struct {
 func newAddressFromString(ads string) (*address, error) {
 	segs := strings.Split(ads, ":")
 	if len(segs) != 2 {
-		return nil, fmt.Errorf("wrong address:%s", ads)
+		return nil, errors.Errorf("wrong address:%s", ads)
 	}
 	addr := &address{}
 	addr.host = segs[0]
@@ -216,7 +217,7 @@ func (in *MysqlBinlogInput) Start() (err error) {
 	}
 	if in.mysqlSwitchType == SwitchByDNS {
 		in.dnsTracker = NewDNSTracker(in.mysqlAddress.host, in.GetLogger(), func() {
-			in.RaiseError(fmt.Errorf("dns change detected"))
+			in.RaiseError(errors.Errorf("dns change detected"))
 		})
 		in.dnsTracker.Start()
 	}
@@ -275,7 +276,7 @@ func (in *MysqlBinlogInput) startSync() (err error) {
 	case ReplicationModeGtid:
 		err = in.syncer.StartSyncGTID(in.eventConsumer.currPos.FullGTIDSet)
 	default:
-		err = fmt.Errorf("unknown replication mode:%s", in.replicationMode)
+		err = errors.Errorf("unknown replication mode:%s", in.replicationMode)
 	}
 	return
 }
@@ -284,7 +285,7 @@ func (in *MysqlBinlogInput) setReplicationMode() error {
 	switch in.Config.ReplicationMode {
 	case ReplicationModeGtid:
 		if !in.serverStatus.GtidEnabled {
-			return fmt.Errorf("gtid not supported by mysql server")
+			return errors.Errorf("gtid not supported by mysql server")
 		}
 		in.replicationMode = ReplicationModeGtid
 	case ReplicationModeFilepos:
@@ -445,7 +446,7 @@ func (c *EventConsumer) handleRowsEvent(pos *core.MysqlBinlogPosition, e *replic
 	case replication.DELETE_ROWS_EVENTv2:
 		op = core.DBDelete
 	default:
-		err = fmt.Errorf("unknown event type:%s", e.Header.EventType.String())
+		err = errors.Errorf("unknown event type:%s", e.Header.EventType.String())
 		return
 	}
 

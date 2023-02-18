@@ -1,7 +1,7 @@
 package mapping
 
 import (
-	"fmt"
+	"github.com/pkg/errors"
 	"github.com/singular-seal/pipe-s/pkg/core"
 	"github.com/singular-seal/pipe-s/pkg/utils"
 	"strings"
@@ -41,7 +41,7 @@ func (p *DBChangeMappingProcessor) Configure(config core.StringMap) (err error) 
 		return err
 	}
 	if len(mappings) == 0 {
-		return fmt.Errorf("no mapping config")
+		return errors.Errorf("no mapping config")
 	}
 	for _, mapping := range mappings {
 		source, err := utils.GetConfigFromConfig(mapping, "$.Source")
@@ -80,7 +80,7 @@ func configureTableMapping(dbInfo *DBInfo, source core.StringMap, target core.St
 		return err
 	}
 	if len(sourceTables) != len(targetTables) {
-		return fmt.Errorf("source table count and target table count not equal")
+		return errors.Errorf("source table count and target table count not equal")
 	}
 	dbInfo.tableMapping = map[string]*TableInfo{}
 	for i, sourceTableMap := range sourceTables {
@@ -118,17 +118,17 @@ func configureActionMapping(tableInfo *TableInfo, sourceTableMap core.StringMap,
 		return err
 	}
 	if len(sourceActions) != len(targetActions) {
-		return fmt.Errorf("source action count and target action count not equal")
+		return errors.Errorf("source action count and target action count not equal")
 	}
 	tableInfo.actionMapping = map[string]string{}
 	for k, each := range sourceActions {
 		sourceAction, ok := each.(string)
 		if ok {
-			return fmt.Errorf("source action is not string")
+			return errors.Errorf("source action is not string")
 		}
 		targetAction, ok := targetActions[k].(string)
 		if ok {
-			return fmt.Errorf("target action is not string")
+			return errors.Errorf("target action is not string")
 		}
 		tableInfo.actionMapping[sourceAction] = targetAction
 	}
@@ -145,18 +145,18 @@ func configureColumnMapping(tableInfo *TableInfo, sourceTableMap core.StringMap,
 		return err
 	}
 	if len(sourceColumns) != len(targetColumns) {
-		return fmt.Errorf("source column count and target column count not equal")
+		return errors.Errorf("source column count and target column count not equal")
 	}
 	tableInfo.columnMapping = map[string]string{}
 	for j, sourceColumnObj := range sourceColumns {
 		targetColumnObj := targetColumns[j]
 		sourceColumn, ok := sourceColumnObj.(string)
 		if !ok {
-			return fmt.Errorf("source column is not string")
+			return errors.Errorf("source column is not string")
 		}
 		targetColumn, ok := targetColumnObj.(string)
 		if !ok {
-			return fmt.Errorf("target column is not string")
+			return errors.Errorf("target column is not string")
 		}
 		tableInfo.columnMapping[sourceColumn] = targetColumn
 	}
@@ -171,7 +171,7 @@ func (p *DBChangeMappingProcessor) Process(msg *core.Message) (skip bool, err er
 	if len(p.dbNameVariable) > 0 {
 		obj, ok := msg.GetVariable(p.dbNameVariable)
 		if !ok {
-			return false, fmt.Errorf("no DBNameVariable found: msg %s, db %s, table %s", msg.Header.ID,
+			return false, errors.Errorf("no DBNameVariable found: msg %s, db %s, table %s", msg.Header.ID,
 				event.Database, event.Table)
 		}
 		logicalDB := obj.(string)
@@ -193,7 +193,7 @@ func (p *DBChangeMappingProcessor) Process(msg *core.Message) (skip bool, err er
 	if len(p.tableNameVariable) > 0 {
 		obj, ok := msg.GetVariable(p.tableNameVariable)
 		if !ok {
-			return false, fmt.Errorf("no TableNameVariable found: msg %s, db %s, table %s", msg.Header.ID,
+			return false, errors.Errorf("no TableNameVariable found: msg %s, db %s, table %s", msg.Header.ID,
 				event.Database, event.Table)
 		}
 		logicalTable := obj.(string)

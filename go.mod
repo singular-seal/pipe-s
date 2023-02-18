@@ -15,6 +15,7 @@ require (
 	github.com/pingcap/errors v0.11.5-0.20201126102027-b0a155152ca3
 	github.com/pingcap/parser v3.1.2+incompatible
 	github.com/pingcap/tidb v0.0.0-20190118125846-54b6de0880f0
+	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v0.9.3
 	github.com/samuel/go-zookeeper v0.0.0-20200724154423-2164a8ac840e
 	github.com/siddontang/go-log v0.0.0-20190221022429-1e957dd83bed

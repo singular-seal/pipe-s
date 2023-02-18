@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/pkg/errors"
 	"github.com/singular-seal/pipe-s/pkg/core"
 	"github.com/singular-seal/pipe-s/pkg/log"
 	"github.com/singular-seal/pipe-s/pkg/schema"
@@ -352,7 +353,7 @@ func (p *TableProcessor) recheckMissingRecords(messages []*core.Message) ([]*cor
 	destPK := p.tableSchema.PKColumnNames()
 	srcTable, ok := messages[0].GetTableSchema()
 	if !ok {
-		return nil, fmt.Errorf("no schema:%s", messages[0].Header.ID)
+		return nil, errors.Errorf("no schema:%s", messages[0].Header.ID)
 	}
 	srcPK := srcTable.PKColumnNames()
 	// try to filter the records deleted from source db recently
@@ -383,7 +384,7 @@ func (p *TableProcessor) recheckDifferentRecords(messages []*core.Message) ([]*c
 	destPK := p.tableSchema.PKColumnNames()
 	srcTable, ok := messages[0].GetTableSchema()
 	if !ok {
-		return nil, fmt.Errorf("no schema:%s", messages[0].Header.ID)
+		return nil, errors.Errorf("no schema:%s", messages[0].Header.ID)
 	}
 	srcPK := srcTable.PKColumnNames()
 	// try to filter the records deleted from source db recently

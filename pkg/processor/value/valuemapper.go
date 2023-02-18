@@ -1,7 +1,7 @@
 package value
 
 import (
-	"fmt"
+	"github.com/pkg/errors"
 	"github.com/singular-seal/pipe-s/pkg/core"
 	"github.com/singular-seal/pipe-s/pkg/utils"
 )
@@ -30,7 +30,7 @@ func (m *ValueMapper) Configure(config core.StringMap) (err error) {
 	}
 	m.config = c
 	if len(m.config.InputVariable) == 0 || len(m.config.OutputVariable) == 0 || len(m.config.Mappings) == 0 {
-		return fmt.Errorf("config missing")
+		return errors.New("config missing")
 	}
 	return nil
 }
@@ -39,7 +39,7 @@ func (m *ValueMapper) Process(msg *core.Message) (bool, error) {
 	v, ok := msg.GetVariable(m.config.InputVariable)
 	if !ok {
 		event := msg.Data.(*core.DBChangeEvent)
-		return false, fmt.Errorf("no input variable, msg id %s, db %s, table %s", msg.Header.ID,
+		return false, errors.Errorf("no input variable, msg id %s, db %s, table %s", msg.Header.ID,
 			event.Database, event.Table)
 	}
 	msg.SetVariable(m.config.OutputVariable, m.config.Mappings[v.(string)])

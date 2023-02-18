@@ -1,7 +1,7 @@
 package batch
 
 import (
-	"fmt"
+	"github.com/pkg/errors"
 	"github.com/singular-seal/pipe-s/pkg/core"
 )
 
@@ -42,13 +42,13 @@ func (bm *BatchMessage) add(info *MessageInfo) (err error) {
 		return
 	case core.DBInsert:
 		if oldMessage.mergedEvent.Operation != core.DBDelete {
-			return fmt.Errorf("insert can only be preceded by delete:%s", oldMessage.mergedEvent.ID)
+			return errors.Errorf("insert can only be preceded by delete:%s", oldMessage.mergedEvent.ID)
 		}
 		mergeInsert(oldMessage, info)
 		return
 	case core.DBUpdate:
 		if oldMessage.mergedEvent.Operation == core.DBDelete {
-			return fmt.Errorf("update can't be preceded by delete:%s", oldMessage.mergedEvent.ID)
+			return errors.Errorf("update can't be preceded by delete:%s", oldMessage.mergedEvent.ID)
 		}
 		mergeUpdate(oldMessage.mergedEvent, info.dbChange)
 		return

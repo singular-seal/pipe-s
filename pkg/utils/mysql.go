@@ -263,7 +263,7 @@ func getScanPtrSafe(columnIdx int, columnTypes []*sql.ColumnType, vPtrs []interf
 		data := reflect.ValueOf(vPtrs[columnIdx]).Elem().Interface()
 		dataRawBytes, ok := data.(sql.RawBytes)
 		if !ok {
-			return nil, fmt.Errorf("failed_convert_sql.RawBytes")
+			return nil, errors.Errorf("failed_convert_sql.RawBytes")
 		}
 		var b sql.RawBytes
 		if dataRawBytes != nil {

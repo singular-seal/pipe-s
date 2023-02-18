@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/pkg/errors"
 	"github.com/singular-seal/pipe-s/pkg/core"
 	"github.com/singular-seal/pipe-s/pkg/log"
 	"github.com/singular-seal/pipe-s/pkg/utils"
@@ -129,7 +130,7 @@ func (p *TableProcessor) executeBatch(messages []*MergedMessage) {
 func (p *TableProcessor) executeSome(messages []*MergedMessage) error {
 	sqlString, sqlArgs := p.generateSql(messages)
 	if len(sqlString) == 0 {
-		return fmt.Errorf("blank sql")
+		return errors.Errorf("blank sql")
 	}
 	result, err := p.conn.Exec(sqlString, sqlArgs...)
 	if err != nil {
