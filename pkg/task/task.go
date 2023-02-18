@@ -3,6 +3,7 @@ package task
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/pkg/errors"
 	"github.com/singular-seal/pipe-s/pkg/builder"
 	"github.com/singular-seal/pipe-s/pkg/core"
 	"github.com/singular-seal/pipe-s/pkg/log"
@@ -61,15 +62,15 @@ func NewTask(config core.StringMap) Task {
 func NewTaskFromJson(path string) (Task, error) {
 	configData, err := ioutil.ReadFile(path)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "fail read file")
 	}
 	confObj := make(core.StringMap)
 	if err = json.Unmarshal(configData, &confObj); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "fail unmarshal json")
 	}
 	taskObj, err := utils.GetConfigFromConfig(confObj, "$.Task")
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "fail read config")
 	}
 	return NewTask(taskObj), nil
 }
@@ -173,17 +174,20 @@ func (t *DefaultTask) Start() (err error) {
 	t.logger.Info("initializing task")
 	t.startPprof()
 	if err = metrics.InitTaskMetricsSingleton(t.config, t.logger); err != nil {
+		err = errors.Wrap(err, "fail init task metrics")
 		return
 	}
 
 	builder.InitComponentBuilder(t.logger)
 
 	if err = t.configure(); err != nil {
+		err = errors.Wrap(err, "fail to configure task")
 		t.logger.Error("failed to configure task", log.Error(err))
 		return err
 	}
 
 	if err = t.start(); err != nil {
+		err = errors.Wrap(err, "failed to start task")
 		t.logger.Error("failed to start task", log.String("id", t.ID), log.Error(err))
 		return err
 	}

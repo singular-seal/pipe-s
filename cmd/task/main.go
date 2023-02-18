@@ -20,12 +20,12 @@ func main() {
 			}
 			t, err := task.NewTaskFromJson(config)
 			if err != nil {
-				fmt.Printf("Fail to create task from config - %v\n", err)
+				fmt.Printf("Fail to create task from config - %+v\n", err)
 				os.Exit(1)
 			}
 			err = t.Start()
 			if err != nil {
-				fmt.Printf("Task has error - %v\n", err)
+				fmt.Printf("Task has error - %+v\n", err)
 			}
 		},
 	}
