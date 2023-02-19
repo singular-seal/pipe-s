@@ -223,7 +223,7 @@ func NewBatchDataPointers(columnTypes []*sql.ColumnType, size int) [][]interface
 	for idx := 0; idx < size; idx++ {
 		vPtrs := make([]interface{}, len(columnTypes))
 		for columnIdx := range columnTypes {
-			vptr := reflect.New(GetScanType(columnTypes[columnIdx]))
+			vptr := reflect.New(ScanType(columnTypes[columnIdx]))
 			vPtrs[columnIdx] = vptr.Interface()
 		}
 		ret[idx] = vPtrs
@@ -247,7 +247,7 @@ func ScanRowsWithDataPointers(rows *sql.Rows, columnTypes []*sql.ColumnType, vPt
 }
 
 func getScanPointer(columnIdx int, columnTypes []*sql.ColumnType, vPtrs []interface{}) (interface{}, error) {
-	scanType := GetScanType(columnTypes[columnIdx])
+	scanType := ScanType(columnTypes[columnIdx])
 	if scanType.String() == "sql.RawBytes" {
 		data := reflect.ValueOf(vPtrs[columnIdx]).Elem().Interface()
 		dataRawBytes, ok := data.(sql.RawBytes)
@@ -265,7 +265,7 @@ func getScanPointer(columnIdx int, columnTypes []*sql.ColumnType, vPtrs []interf
 	return vPtrs[columnIdx], nil
 }
 
-func GetScanType(columnType *sql.ColumnType) reflect.Type {
+func ScanType(columnType *sql.ColumnType) reflect.Type {
 	if isFloatColumn(columnType) {
 		return reflect.TypeOf(sql.NullFloat64{})
 	} else if isStringColumn(columnType) {
@@ -287,7 +287,7 @@ func isFloatColumn(columnType *sql.ColumnType) bool {
 	return strings.Contains(typeName, "DECIMAL")
 }
 
-func GetColumnTypes(db string, table string, cols []string, conn *sql.DB) ([]*sql.ColumnType, error) {
+func LoadColumnTypes(db string, table string, cols []string, conn *sql.DB) ([]*sql.ColumnType, error) {
 	var colStat string
 	if len(cols) == 0 {
 		colStat = "*"

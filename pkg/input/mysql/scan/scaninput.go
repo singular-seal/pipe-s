@@ -339,7 +339,7 @@ func (scanner *TableScanner) scanTable(table *core.Table) (err error) {
 		return
 	}
 	// make batch data placeholders
-	columnTypes, err := utils.GetColumnTypes(table.DBName, table.TableName, nil, scanner.input.dbConnection)
+	columnTypes, err := utils.LoadColumnTypes(table.DBName, table.TableName, nil, scanner.input.dbConnection)
 	if err != nil {
 		return
 	}

@@ -137,7 +137,7 @@ func NewTableProcessor(db string, table string, output *MysqlCheckOutput) (*Tabl
 	if err != nil {
 		return nil, err
 	}
-	columnTypes, err := utils.GetColumnTypes(db, table, ts.ColumnNames(), output.conn)
+	columnTypes, err := utils.LoadColumnTypes(db, table, ts.ColumnNames(), output.conn)
 	if err != nil {
 		return nil, err
 	}
