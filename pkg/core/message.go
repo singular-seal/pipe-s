@@ -24,7 +24,7 @@ type MessageHeader struct {
 type Message struct {
 	Type   string
 	Header *MessageHeader
-	Body   interface{}
+	Data   interface{}
 }
 
 // SetMeta set system meta value.

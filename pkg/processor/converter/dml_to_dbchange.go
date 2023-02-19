@@ -28,7 +28,7 @@ func (c *MysqlDMLToDBChangeConverter) Configure(config core.StringMap) (err erro
 }
 
 func (c *MysqlDMLToDBChangeConverter) Process(msg *core.Message) (bool, error) {
-	dml := msg.Body.(*core.MysqlDMLEvent)
+	dml := msg.Data.(*core.MysqlDMLEvent)
 	dbChange := &core.DBChangeEvent{
 		ExtraInfo: make(map[string]interface{}),
 	}
@@ -57,7 +57,7 @@ func (c *MysqlDMLToDBChangeConverter) Process(msg *core.Message) (bool, error) {
 			return false, err
 		}
 	}
-	msg.Body = dbChange
+	msg.Data = dbChange
 	msg.Type = core.TypeDBChange
 	return false, nil
 }

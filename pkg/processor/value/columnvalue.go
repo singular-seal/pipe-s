@@ -36,7 +36,7 @@ func (p *ColumnValueProcessor) Configure(config core.StringMap) (err error) {
 }
 
 func (p *ColumnValueProcessor) Process(msg *core.Message) (bool, error) {
-	event := msg.Body.(*core.DBChangeEvent)
+	event := msg.Data.(*core.DBChangeEvent)
 	tb, ok := msg.GetVariable(p.config.TableNameVariable)
 	if !ok {
 		return false, errors.Errorf("no table variable, msg id %s, db %s, table %s", msg.Header.ID,

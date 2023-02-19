@@ -153,7 +153,7 @@ func (consumer *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, clai
 		m := core.NewMessage(core.TypeByte)
 		m.Header.ID = fmt.Sprintf("%s.%d.%d", message.Topic, message.Partition, message.Offset)
 		m.Header.CreateTime = uint64(time.Now().UnixNano())
-		m.Body = message.Value
+		m.Data = message.Value
 		m.SetMeta(core.MetaKafkaConsumerSession, session)
 		position := &KafkaPosition{
 			Topic:     message.Topic,

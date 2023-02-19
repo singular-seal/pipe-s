@@ -60,7 +60,7 @@ func (catcher *DBTableNameCatcher) Configure(config core.StringMap) (err error) 
 }
 
 func (catcher *DBTableNameCatcher) Process(msg *core.Message) (bool, error) {
-	event := msg.Body.(*core.MysqlDMLEvent)
+	event := msg.Data.(*core.MysqlDMLEvent)
 	dt := strings.Split(event.FullTableName, ".")
 	if len(dt) != 2 {
 		return false, errors.Errorf("illegal full table name:%s, msg id:%s", event.FullTableName, msg.Header.ID)

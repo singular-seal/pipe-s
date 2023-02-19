@@ -103,7 +103,7 @@ func (c AckConsumer) Consume(lower, upper int64) {
 		// this should never happen
 		if w == nil {
 			c.pipeline.GetLogger().Fatal("AckWaitGroup missing", log.String("msg id", event.msg.Header.ID),
-				log.Any("data", event.msg.Body))
+				log.Any("data", event.msg.Data))
 			continue
 		}
 		w.Wait()
