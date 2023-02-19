@@ -79,7 +79,7 @@ func NewMysqlCheckOutput() *MysqlCheckOutput {
 }
 
 func (o *MysqlCheckOutput) Start() (err error) {
-	if o.conn, err = utils.CreateMysqlClient(o.config.Host, o.config.Port, o.config.User, o.config.Password); err != nil {
+	if o.conn, err = utils.CreateMysqlConnection(o.config.Host, o.config.Port, o.config.User, o.config.Password); err != nil {
 		return
 	}
 	o.schemaStore = schema.NewSimpleSchemaStoreWithClient(o.conn)
@@ -93,7 +93,7 @@ func (o *MysqlCheckOutput) Start() (err error) {
 func (o *MysqlCheckOutput) Stop() {
 	o.stopCancel()
 	o.schemaStore.Close()
-	if err := utils.CloseMysqlClient(o.conn); err != nil {
+	if err := utils.CloseMysqlConnection(o.conn); err != nil {
 		o.GetLogger().Error("MysqlBatchOutput failed close db connection")
 	}
 	o.resultFile.Close()

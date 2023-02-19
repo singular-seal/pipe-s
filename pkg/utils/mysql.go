@@ -20,31 +20,30 @@ const (
 	DefaultMysqlWriteTimeout      = 30000
 )
 
-// CreateMysqlClient creates a new instance of mysql connection
-func CreateMysqlClient(host string, port uint16, user string, password string) (db1 *sql.DB, err error) {
-	dbDSNTimeouts := "&timeout=%vms&readTimeout=%vms&writeTimeout=%vms"
-	dbDSNTimeouts = fmt.Sprintf(dbDSNTimeouts, DefaultMysqlConnectionTimeout, DefaultMysqlReadTimeout, DefaultMysqlWriteTimeout)
+// CreateMysqlConnection creates a new instance of mysql connection
+func CreateMysqlConnection(host string, port uint16, user string, password string) (db1 *sql.DB, err error) {
+	dsnTO := "&timeout=%vms&readTimeout=%vms&writeTimeout=%vms"
+	dsnTO = fmt.Sprintf(dsnTO, DefaultMysqlConnectionTimeout, DefaultMysqlReadTimeout, DefaultMysqlWriteTimeout)
 
-	dbDSN := "%s:%s@tcp(%s:%d)/?interpolateParams=true&parseTime=true&multiStatements=true&collation=utf8mb4_general_ci%s"
-	dbDSN = fmt.Sprintf(dbDSN, user, password, host, port, dbDSNTimeouts)
+	dsn := "%s:%s@tcp(%s:%d)/?interpolateParams=true&parseTime=true&multiStatements=true&collation=utf8mb4_general_ci%s"
+	dsn = fmt.Sprintf(dsn, user, password, host, port, dsnTO)
 
-	if db1, err = sql.Open("mysql", dbDSN); err != nil {
-		return nil, err
+	if db1, err = sql.Open("mysql", dsn); err != nil {
+		return
 	}
 
-	timeoutDuration := time.Duration(DefaultMysqlReadTimeout) * time.Millisecond
-	ctx, cancel := context.WithTimeout(context.Background(), timeoutDuration)
+	tod := time.Duration(DefaultMysqlReadTimeout) * time.Millisecond
+	ctx, cancel := context.WithTimeout(context.Background(), tod)
 	defer cancel()
 
 	if err = db1.PingContext(ctx); err != nil {
-		return nil, err
+		return
 	}
-
-	return db1, nil
+	return
 }
 
-// CloseMysqlClient closes mysql client connection
-func CloseMysqlClient(db *sql.DB) error {
+// CloseMysqlConnection closes mysql client connection
+func CloseMysqlConnection(db *sql.DB) error {
 	if db == nil {
 		return nil
 	}

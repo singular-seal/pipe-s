@@ -22,7 +22,7 @@ type SimpleSchemaStore struct {
 
 func NewSimpleSchemaStoreWithParameters(host string, port uint16, user string, password string) (*SimpleSchemaStore, error) {
 	InitGlobal()
-	client, err := utils.CreateMysqlClient(host, port, user, password)
+	client, err := utils.CreateMysqlConnection(host, port, user, password)
 	if err != nil {
 		return nil, err
 	}

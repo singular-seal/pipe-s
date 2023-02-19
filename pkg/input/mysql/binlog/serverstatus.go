@@ -51,7 +51,7 @@ func LoadFromServer(host string, port uint16, user string, password string) (st 
 		Port: port,
 	}
 
-	conn, err := utils.CreateMysqlClient(host, port, user, password)
+	conn, err := utils.CreateMysqlConnection(host, port, user, password)
 	if err != nil {
 		return nil, err
 	}

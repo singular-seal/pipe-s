@@ -127,7 +127,7 @@ func (in *MysqlScanInput) Configure(config core.StringMap) (err error) {
 }
 
 func (in *MysqlScanInput) Start() (err error) {
-	if in.dbConnection, err = utils.CreateMysqlClient(in.Config.Host, in.Config.Port, in.Config.User, in.Config.Password); err != nil {
+	if in.dbConnection, err = utils.CreateMysqlConnection(in.Config.Host, in.Config.Port, in.Config.User, in.Config.Password); err != nil {
 		return
 	}
 
