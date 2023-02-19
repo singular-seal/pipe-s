@@ -147,15 +147,6 @@ func ExtractFromDDL(schema []byte, stmt ast.StmtNode) []*DDLInfo {
 	return result
 }
 
-// QuoteColumns add quotes to column names
-func QuoteColumns(cols []string) []string {
-	result := make([]string, len(cols))
-	for i, col := range cols {
-		result[i] = fmt.Sprintf("`%s`", col)
-	}
-	return result
-}
-
 func genKeyValueSqlAndArgs(columns map[string]interface{}, separator string) (string, []interface{}) {
 	args := make([]interface{}, 0)
 	conditions := make([]string, 0)
@@ -193,7 +184,7 @@ func genColumnsStringAndArgs(columns map[string]interface{}) (string, string, []
 		cols = append(cols, k)
 		marks = append(marks, "?")
 	}
-	return strings.Join(QuoteColumns(cols), ","), strings.Join(marks, ","), args
+	return strings.Join(cols, ","), strings.Join(marks, ","), args
 }
 
 func getKeys(eventData map[string]interface{}, keyColumns []string) map[string]interface{} {
@@ -232,8 +223,7 @@ func NewBatchDataPointers(columnTypes []*sql.ColumnType, size int) [][]interface
 	for idx := 0; idx < size; idx++ {
 		vPtrs := make([]interface{}, len(columnTypes))
 		for columnIdx := range columnTypes {
-			scanType := GetScanType(columnTypes[columnIdx])
-			vptr := reflect.New(scanType)
+			vptr := reflect.New(GetScanType(columnTypes[columnIdx]))
 			vPtrs[columnIdx] = vptr.Interface()
 		}
 		ret[idx] = vPtrs

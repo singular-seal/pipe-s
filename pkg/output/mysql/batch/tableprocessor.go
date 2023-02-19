@@ -170,7 +170,7 @@ func (p *TableProcessor) generateInsertSql(messages []*MergedMessage) (sqlString
 	msg0 := messages[0]
 	columns := msg0.originals[0].ColumnNames()
 	sqlPrefix := fmt.Sprintf("insert ignore into %s.%s (%s) values", msg0.mergedEvent.Database,
-		msg0.mergedEvent.Table, strings.Join(utils.QuoteColumns(columns), ","))
+		msg0.mergedEvent.Table, strings.Join(columns, ","))
 	allPlaceHolders := make([]string, 0)
 	allArgs := make([]interface{}, 0)
 
