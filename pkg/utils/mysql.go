@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/pingcap/errors"
 	"github.com/pingcap/parser/ast"
+	"github.com/pkg/errors"
 	"github.com/singular-seal/pipe-s/pkg/core"
 	"math/rand"
 	"reflect"
@@ -233,11 +233,11 @@ func NewBatchDataPointers(columnTypes []*sql.ColumnType, size int) [][]interface
 
 func ScanRowsWithDataPointers(rows *sql.Rows, columnTypes []*sql.ColumnType, vPtrs []interface{}) ([]interface{}, error) {
 	if err := rows.Scan(vPtrs...); err != nil {
-		return nil, errors.Trace(err)
+		return nil, err
 	}
 
 	for i := range columnTypes {
-		p, err := getScanPtrSafe(i, columnTypes, vPtrs)
+		p, err := getScanPointer(i, columnTypes, vPtrs)
 		if err != nil {
 			return nil, err
 		}
@@ -246,13 +246,13 @@ func ScanRowsWithDataPointers(rows *sql.Rows, columnTypes []*sql.ColumnType, vPt
 	return vPtrs, nil
 }
 
-func getScanPtrSafe(columnIdx int, columnTypes []*sql.ColumnType, vPtrs []interface{}) (interface{}, error) {
+func getScanPointer(columnIdx int, columnTypes []*sql.ColumnType, vPtrs []interface{}) (interface{}, error) {
 	scanType := GetScanType(columnTypes[columnIdx])
 	if scanType.String() == "sql.RawBytes" {
 		data := reflect.ValueOf(vPtrs[columnIdx]).Elem().Interface()
 		dataRawBytes, ok := data.(sql.RawBytes)
 		if !ok {
-			return nil, errors.Errorf("failed_convert_sql.RawBytes")
+			return nil, errors.Errorf("failed convert sql.RawBytes")
 		}
 		var b sql.RawBytes
 		if dataRawBytes != nil {
@@ -295,7 +295,7 @@ func GetColumnTypes(db string, table string, cols []string, conn *sql.DB) ([]*sq
 		colStat = strings.Join(cols, ",")
 	}
 
-	stat := fmt.Sprintf("select %s from `%s`.`%s` limit 1", colStat, db, table)
+	stat := fmt.Sprintf("select %s from %s.%s limit 1", colStat, db, table)
 	rows, err := conn.Query(stat)
 	if err != nil {
 		return nil, err
