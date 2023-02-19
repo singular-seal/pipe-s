@@ -164,7 +164,7 @@ func configureColumnMapping(tableInfo *TableInfo, sourceTableMap core.StringMap,
 }
 
 func (p *DBChangeMappingProcessor) Process(msg *core.Message) (skip bool, err error) {
-	event := msg.Data.(*core.DBChangeEvent)
+	event := msg.Body.(*core.DBChangeEvent)
 	// mapping database name
 	var dbInfo *DBInfo
 	var ok bool

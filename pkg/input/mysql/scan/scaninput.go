@@ -206,7 +206,7 @@ func (in *MysqlScanInput) newDMLMessage(row []interface{}, pkVal []interface{}, 
 	}
 	m.SetMeta(core.MetaTableSchema, table)
 	m.SetMeta(core.MetaMySqlScanPos, pkVal)
-	m.Data = dml
+	m.Body = dml
 	return m
 }
 

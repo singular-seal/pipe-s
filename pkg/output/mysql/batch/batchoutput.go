@@ -109,7 +109,7 @@ func (o *MysqlBatchOutput) Configure(config core.StringMap) (err error) {
 }
 
 func (o *MysqlBatchOutput) Process(m *core.Message) {
-	dbChange := m.Data.(*core.DBChangeEvent)
+	dbChange := m.Body.(*core.DBChangeEvent)
 	ts, err := o.schemaStore.GetTable(dbChange.Database, dbChange.Table)
 	if err != nil {
 		o.GetInput().Ack(m, err)

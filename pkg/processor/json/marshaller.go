@@ -16,8 +16,8 @@ func NewJsonMarshaller() *JsonMarshaller {
 }
 
 func (m *JsonMarshaller) Process(msg *core.Message) (skip bool, err error) {
-	if data, err := json.Marshal(msg.Data); err == nil {
-		msg.Data = data
+	if data, err := json.Marshal(msg.Body); err == nil {
+		msg.Body = data
 		msg.Type = core.TypeJsonByte
 	}
 	return

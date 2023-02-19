@@ -460,7 +460,7 @@ func (c *EventConsumer) handleRowsEvent(pos *core.MysqlBinlogPosition, e *replic
 		for i := range rowsEvent.Rows {
 			c.transactionOffset++
 			m := c.newDMLMessage(pos, i, e, createTime, fullTableName, op, tableSchema)
-			m.Data.(*core.MysqlDMLEvent).NewRow = rowsEvent.Rows[i]
+			m.Body.(*core.MysqlDMLEvent).NewRow = rowsEvent.Rows[i]
 			c.input.GetOutput().Process(m)
 		}
 	case core.DBUpdate:
@@ -473,15 +473,15 @@ func (c *EventConsumer) handleRowsEvent(pos *core.MysqlBinlogPosition, e *replic
 		for i := 0; i < len(rowsEvent.Rows)-1; i += 2 {
 			c.transactionOffset++
 			m := c.newDMLMessage(pos, i/2, e, createTime, fullTableName, op, tableSchema)
-			m.Data.(*core.MysqlDMLEvent).OldRow = rowsEvent.Rows[i]
-			m.Data.(*core.MysqlDMLEvent).NewRow = rowsEvent.Rows[i+1]
+			m.Body.(*core.MysqlDMLEvent).OldRow = rowsEvent.Rows[i]
+			m.Body.(*core.MysqlDMLEvent).NewRow = rowsEvent.Rows[i+1]
 			c.input.GetOutput().Process(m)
 		}
 	case core.DBDelete:
 		for i := range rowsEvent.Rows {
 			c.transactionOffset++
 			m := c.newDMLMessage(pos, i, e, createTime, fullTableName, op, tableSchema)
-			m.Data.(*core.MysqlDMLEvent).OldRow = rowsEvent.Rows[i]
+			m.Body.(*core.MysqlDMLEvent).OldRow = rowsEvent.Rows[i]
 			c.input.GetOutput().Process(m)
 		}
 	}
@@ -534,7 +534,7 @@ func (c *EventConsumer) newDMLMessage(pos *core.MysqlBinlogPosition, rowIndex in
 
 	m.SetMeta(core.MetaMySqlPos, mysqlEvent.Pos)
 	m.SetMeta(core.MetaTableSchema, ts)
-	m.Data = mysqlEvent
+	m.Body = mysqlEvent
 	return m
 }
 

@@ -201,7 +201,7 @@ func (p *TableProcessor) Flush() {
 }
 
 func (p *TableProcessor) check(messages []*core.Message) error {
-	selCols := messages[0].Data.(*core.DBChangeEvent).GetColumns()
+	selCols := messages[0].Body.(*core.DBChangeEvent).GetColumns()
 	pkCols := p.tableSchema.PKColumnNames()
 	sqlString, args := generateSelectSqlAndArgs(p.tableSchema.DBName, p.tableSchema.TableName, selCols, pkCols, getPKValues(pkCols, messages))
 	target, err := p.executeSelect(sqlString, args, selCols)
@@ -298,7 +298,7 @@ func (p *TableProcessor) checkData(sourceMessages []*core.Message, targetData []
 	// find diffs
 	targetPKMap := toPKMap(targetData, pkColumns)
 	for _, message := range sourceMessages {
-		event := message.Data.(*core.DBChangeEvent)
+		event := message.Body.(*core.DBChangeEvent)
 		targetRecord, ok := targetPKMap[pkValue(event.GetRow(), pkColumns)]
 		if !ok {
 			misses = append(misses, message)
@@ -321,7 +321,7 @@ func (p *TableProcessor) checkData(sourceMessages []*core.Message, targetData []
 	}
 	// check result
 	for _, each := range misses {
-		event := each.Data.(*core.DBChangeEvent)
+		event := each.Body.(*core.DBChangeEvent)
 		item := &checkOutputItem{
 			DBName:      event.Database,
 			TableName:   event.Table,
@@ -332,7 +332,7 @@ func (p *TableProcessor) checkData(sourceMessages []*core.Message, targetData []
 		diffItems = append(diffItems, item)
 	}
 	for _, each := range diffs {
-		event := each.Data.(*core.DBChangeEvent)
+		event := each.Body.(*core.DBChangeEvent)
 		targetRecord, _ := targetPKMap[pkValue(event.GetRow(), pkColumns)]
 		item := &checkOutputItem{
 			DBName:      event.Database,
@@ -369,7 +369,7 @@ func (p *TableProcessor) recheckMissingRecords(messages []*core.Message) ([]*cor
 
 	srcPKMap := toPKMap(data, srcPK)
 	for _, msg := range messages {
-		event := msg.Data.(*core.DBChangeEvent)
+		event := msg.Body.(*core.DBChangeEvent)
 		if _, ok := srcPKMap[pkValue(event.GetRow(), destPK)]; ok {
 			result = append(result, msg)
 		}
@@ -403,7 +403,7 @@ func (p *TableProcessor) recheckDifferentRecords(messages []*core.Message) ([]*c
 	}
 	srcPKMap := toPKMap(data, srcPK)
 	for _, msg := range messages {
-		event := msg.Data.(*core.DBChangeEvent)
+		event := msg.Body.(*core.DBChangeEvent)
 		if _, ok := srcPKMap[pkValue(event.GetRow(), destPK)]; ok {
 			result = append(result, msg)
 		}
@@ -504,7 +504,7 @@ func generateSelectSqlAndArgs(db string, table string, selCols []string, pkCols 
 func getPKValues(pkCols []string, messages []*core.Message) [][]interface{} {
 	result := make([][]interface{}, 0)
 	for _, msg := range messages {
-		event := msg.Data.(*core.DBChangeEvent)
+		event := msg.Body.(*core.DBChangeEvent)
 		pk := make([]interface{}, 0)
 		for _, col := range pkCols {
 			pk = append(pk, event.GetRow()[col])
@@ -522,7 +522,7 @@ func (p *TableProcessor) Process(m *core.Message) {
 }
 
 func (o *MysqlCheckOutput) Process(m *core.Message) {
-	dbChange := m.Data.(*core.DBChangeEvent)
+	dbChange := m.Body.(*core.DBChangeEvent)
 	ft := utils.FullTableName(dbChange.Database, dbChange.Table)
 	p, ok := o.tableProcessors[ft]
 

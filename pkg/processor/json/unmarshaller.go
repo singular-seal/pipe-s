@@ -18,7 +18,7 @@ func NewDBChangeUnmarshaller() *DBChangeUnmarshaller {
 
 func (um *DBChangeUnmarshaller) Process(msg *core.Message) (skip bool, err error) {
 	var event core.DBChangeEvent
-	d, ok := msg.Data.([]byte)
+	d, ok := msg.Body.([]byte)
 	if !ok {
 		return false, errors.Errorf("no byte found, msg id %s", msg.Header.ID)
 	}
@@ -26,6 +26,6 @@ func (um *DBChangeUnmarshaller) Process(msg *core.Message) (skip bool, err error
 		return
 	}
 	msg.Type = core.TypeDBChange
-	msg.Data = &event
+	msg.Body = &event
 	return
 }

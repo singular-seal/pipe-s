@@ -38,7 +38,7 @@ func (m *ValueMapper) Configure(config core.StringMap) (err error) {
 func (m *ValueMapper) Process(msg *core.Message) (bool, error) {
 	v, ok := msg.GetVariable(m.config.InputVariable)
 	if !ok {
-		event := msg.Data.(*core.DBChangeEvent)
+		event := msg.Body.(*core.DBChangeEvent)
 		return false, errors.Errorf("no input variable, msg id %s, db %s, table %s", msg.Header.ID,
 			event.Database, event.Table)
 	}

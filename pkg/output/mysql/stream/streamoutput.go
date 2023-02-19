@@ -119,7 +119,7 @@ func (o *MysqlStreamOutput) processTaskQueue(index int) {
 }
 
 func (o *MysqlStreamOutput) processTask(t *task) {
-	event := t.message.Data.(*core.DBChangeEvent)
+	event := t.message.Body.(*core.DBChangeEvent)
 	sqlString, sqlArgs := utils.GenerateSqlAndArgs(event, t.primaryKeyColumns)
 	result, err := o.conn.Exec(sqlString, sqlArgs...)
 	if err != nil {
@@ -134,7 +134,7 @@ func (o *MysqlStreamOutput) processTask(t *task) {
 }
 
 func (o *MysqlStreamOutput) Process(m *core.Message) {
-	dbChange := m.Data.(*core.DBChangeEvent)
+	dbChange := m.Body.(*core.DBChangeEvent)
 	ts, err := o.schemaStore.GetTable(dbChange.Database, dbChange.Table)
 	if err != nil {
 		o.GetInput().Ack(m, err)

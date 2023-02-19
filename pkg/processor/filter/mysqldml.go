@@ -48,7 +48,7 @@ func (f *MysqlDMLFilter) Configure(config core.StringMap) (err error) {
 }
 
 func (f *MysqlDMLFilter) Process(msg *core.Message) (bool, error) {
-	event := msg.Data.(*core.MysqlDMLEvent)
+	event := msg.Body.(*core.MysqlDMLEvent)
 	if f.tableRegex != nil {
 		if !f.tableRegex.MatchString(event.FullTableName) {
 			return true, nil

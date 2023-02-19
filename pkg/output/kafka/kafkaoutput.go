@@ -164,7 +164,7 @@ func (o *KafkaOutput) sendWithTimeout(message *sarama.ProducerMessage) error {
 }
 
 func (o *KafkaOutput) createKafkaMessage(m *core.Message) (*sarama.ProducerMessage, error) {
-	data, ok := m.Data.([]byte)
+	data, ok := m.Body.([]byte)
 	if !ok {
 		return nil, errors.Errorf("KafkaOutput no bytes in msg, id %s", m.Header.ID)
 	}
