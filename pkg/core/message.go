@@ -13,6 +13,24 @@ const (
 	TypeDBChange = "db_change"
 )
 
+const (
+	MetaUndefined int = iota
+	CustomVariable
+	MetaMySqlPos
+	MetaMySqlScanPos
+	MetaTableSchema
+	AckWaitGroup
+	MetaKafkaConsumerSession
+	MetaKafkaConsumerPosition
+)
+
+// db operation types
+const (
+	DBInsert = "insert"
+	DBUpdate = "update"
+	DBDelete = "delete"
+)
+
 type MessageHeader struct {
 	ID         string              // ID of the message
 	Sequence   uint64              // In process unique message identifier
@@ -86,41 +104,22 @@ func NewMessage(typeName string) *Message {
 	}
 }
 
-const (
-	MetaUndefined int = iota
-	CustomVariable
-	MetaMySqlPos
-	MetaMySqlScanPos
-	MetaTableSchema
-	AckWaitGroup
-	MetaKafkaConsumerSession
-	MetaKafkaConsumerPosition
-)
-
-// db operation types
-const (
-	DBInsert = "insert"
-	DBUpdate = "update"
-	DBDelete = "delete"
-)
-
 // MysqlBinlogPosition describes position in mysql binlog.
 type MysqlBinlogPosition struct {
-	BinlogName        string // binlog filename
-	BinlogPos         uint32 // binlog position
-	TxBinlogPos       uint32 // last committed transaction binlog position
-	Timestamp         uint32 // binlog timestamp
-	ServerID          uint32 // mysql server_id
-	ServerUUID        string // server UUID
-	TransactionID     int64  // transaction ID
-	FullGTIDSetString string // full GTID as string (for serialization)
-	RowOffset         int    // offset of the row in current batch
-	TransactionOffset int    //offset in a transaction
-
-	FullGTIDSet mysql.GTIDSet `json:"-"` // parsed GTID set (for runtime)
+	BinlogName        string        // binlog filename
+	BinlogPos         uint32        // binlog position
+	TxBinlogPos       uint32        // last committed transaction binlog position
+	Timestamp         uint32        // binlog timestamp
+	ServerID          uint32        // mysql server_id
+	ServerUUID        string        // server UUID
+	TransactionID     int64         // transaction ID
+	GTIDSetString     string        // all GTIDs as string (for serialization)
+	RowOffset         int           // offset of the row in current batch
+	TransactionOffset int           //offset in a transaction
+	GTIDSet           mysql.GTIDSet `json:"-"` // parsed GTID set (for runtime)
 }
 
-// SimpleCopy clones a new position instance but skip FullGTIDSet which costs much.
+// SimpleCopy clones a new position instance but skip GTIDSet which costs much.
 func (p *MysqlBinlogPosition) SimpleCopy() *MysqlBinlogPosition {
 	return &MysqlBinlogPosition{
 		BinlogName:        p.BinlogName,
@@ -130,17 +129,17 @@ func (p *MysqlBinlogPosition) SimpleCopy() *MysqlBinlogPosition {
 		ServerID:          p.ServerID,
 		ServerUUID:        p.ServerUUID,
 		TransactionID:     p.TransactionID,
-		FullGTIDSetString: p.FullGTIDSetString,
+		GTIDSetString:     p.GTIDSetString,
 		RowOffset:         p.RowOffset,
 		TransactionOffset: p.TransactionOffset,
 	}
 }
 
 func MarshalMysqlBinlogPosition(p *MysqlBinlogPosition) ([]byte, error) {
-	/*	if p.FullGTIDSet != nil {
-		p.FullGTIDSetString = p.FullGTIDSet.String()
+	/*	if p.GTIDSet != nil {
+		p.GTIDSetString = p.GTIDSet.String()
 	}*/
-	// we carry gtid set by string in messages, so needn't use FullGTIDSet
+	// we carry gtid set by string in messages, so needn't use GTIDSet
 	if data, err := json.Marshal(p); err == nil {
 		return data, nil
 	} else {
@@ -152,7 +151,7 @@ func UnmarshalMysqlBinlogPosition(p *MysqlBinlogPosition, data []byte) (err erro
 	if err = json.Unmarshal(data, p); err != nil {
 		return err
 	}
-	if p.FullGTIDSet, err = mysql.ParseMysqlGTIDSet(p.FullGTIDSetString); err != nil {
+	if p.GTIDSet, err = mysql.ParseMysqlGTIDSet(p.GTIDSetString); err != nil {
 		return err
 	}
 	return

@@ -238,7 +238,7 @@ func (in *MysqlBinlogInput) resolveInitState() (err error) {
 	// todo find position by timestamp
 	// merge purged gtidset into full gtidset to solve the issue that start syncing with gtidset which doesn't
 	// include the purged gtidset and fails with error.
-	if err = mergeGTIDSets(in.serverStatus.PurgedGtidSet, in.eventConsumer.currPos.FullGTIDSet); err != nil {
+	if err = mergeGTIDSets(in.serverStatus.PurgedGtidSet, in.eventConsumer.currPos.GTIDSet); err != nil {
 		return
 	}
 	return
@@ -274,7 +274,7 @@ func (in *MysqlBinlogInput) startSync() (err error) {
 		}
 		err = in.syncer.StartSync(pos)
 	case ReplicationModeGtid:
-		err = in.syncer.StartSyncGTID(in.eventConsumer.currPos.FullGTIDSet)
+		err = in.syncer.StartSyncGTID(in.eventConsumer.currPos.GTIDSet)
 	default:
 		err = errors.Errorf("unknown replication mode:%s", in.replicationMode)
 	}
@@ -405,11 +405,11 @@ func (c *EventConsumer) handleTxCommit() (err error) {
 	if c.input.replicationMode == ReplicationModeGtid {
 		gtid := fmt.Sprintf("%s:%d", c.currPos.ServerUUID, c.currPos.TransactionID)
 		//todo optimize update function
-		if err = c.currPos.FullGTIDSet.Update(gtid); err != nil {
+		if err = c.currPos.GTIDSet.Update(gtid); err != nil {
 			c.input.GetLogger().Error("failed to update gtid", log.String("gtid", gtid), log.Error(err))
 			return
 		}
-		c.currPos.FullGTIDSetString = c.currPos.FullGTIDSet.String()
+		c.currPos.GTIDSetString = c.currPos.GTIDSet.String()
 	} else {
 		c.currPos.TxBinlogPos = c.currPos.BinlogPos
 	}

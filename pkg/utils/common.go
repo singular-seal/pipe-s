@@ -4,7 +4,10 @@ import (
 	"context"
 	"hash/fnv"
 	"net"
+	"os"
+	"os/signal"
 	"reflect"
+	"syscall"
 	"time"
 )
 
@@ -14,7 +17,7 @@ func GetTypeName(v interface{}) string {
 }
 
 func ReadDataFromPointers(pointers []interface{}) []interface{} {
-	result := make([]interface{}, 0)
+	result := make([]interface{}, 0, len(pointers))
 	for _, p := range pointers {
 		result = append(result, reflect.ValueOf(p).Elem().Interface())
 	}
@@ -46,6 +49,12 @@ func LookupDNS(host string) ([]string, error) {
 	ctx, _ := context.WithTimeout(context.Background(), timeoutDuration)
 
 	return net.DefaultResolver.LookupHost(ctx, host)
+}
+
+func SignalQuit() chan os.Signal {
+	quit := make(chan os.Signal)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	return quit
 }
 
 // IsNil works around the famous issue https://stackoverflow.com/questions/13476349/check-for-nil-and-nil-interface-in-go

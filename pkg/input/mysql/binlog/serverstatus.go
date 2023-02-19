@@ -34,13 +34,13 @@ func (s *ServerStatus) BinlogPosition() (core.MysqlBinlogPosition, error) {
 	}
 
 	pos := core.MysqlBinlogPosition{
-		BinlogName:        s.File,
-		BinlogPos:         s.Pos,
-		ServerID:          s.ServerID,
-		ServerUUID:        s.ServerUUID,
-		TransactionID:     0,
-		FullGTIDSetString: s.ExecutedGtidSet,
-		FullGTIDSet:       gtidSet,
+		BinlogName:    s.File,
+		BinlogPos:     s.Pos,
+		ServerID:      s.ServerID,
+		ServerUUID:    s.ServerUUID,
+		TransactionID: 0,
+		GTIDSetString: s.ExecutedGtidSet,
+		GTIDSet:       gtidSet,
 	}
 	return pos, nil
 }

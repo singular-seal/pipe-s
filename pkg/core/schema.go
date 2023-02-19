@@ -4,21 +4,6 @@ import (
 	"database/sql"
 )
 
-// Column represents a mysql table column
-type Column struct {
-	Name  string
-	Index int
-	Type  ColumnType
-	// Description from mysql metadata
-	RawType      string
-	IsPrimaryKey bool
-	IsNullable   bool
-	IsUnsigned   bool
-	//some types may have length property
-	Length       int
-	DefaultValue sql.NullString
-}
-
 type ColumnType = int
 
 // mysql column types, see https://dev.mysql.com/doc/refman/8.0/en/data-types.html
@@ -54,6 +39,21 @@ const (
 	TypeSet
 	TypeJson
 )
+
+// Column represents a mysql table column
+type Column struct {
+	Name  string
+	Index int
+	Type  ColumnType
+	// Description from mysql metadata
+	RawType      string
+	IsPrimaryKey bool
+	IsNullable   bool
+	IsUnsigned   bool
+	//some types may have length property
+	Length       int
+	DefaultValue sql.NullString
+}
 
 // Table represents a mysql table
 type Table struct {
