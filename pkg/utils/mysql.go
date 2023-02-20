@@ -199,19 +199,19 @@ func GenerateSqlAndArgs(event *core.DBChangeEvent, keyColumns []string) (sqlStri
 	switch event.Operation {
 	case core.DBInsert:
 		colString, markString, args := genColumnsStringAndArgs(event.NewRow)
-		sqlString = fmt.Sprintf("insert ignore into %s.%s (%s) values (%s)", event.Database,
+		sqlString = fmt.Sprintf("INSERT IGNORE INTO %s.%s (%s) VALUES (%s)", event.Database,
 			event.Table, colString, markString)
 		sqlArgs = args
 	case core.DBUpdate:
 		keys := getKeys(event.NewRow, keyColumns)
 		setString, setArgs := genKeyValueSqlAndArgsExclude(event.NewRow, keys, ",")
-		condString, condArgs := genKeyValueSqlAndArgs(keys, " and ")
-		sqlString = fmt.Sprintf("update %s.%s set %s where %s", event.Database, event.Table, setString, condString)
+		condString, condArgs := genKeyValueSqlAndArgs(keys, " AND ")
+		sqlString = fmt.Sprintf("UPDATE %s.%s SET %s WHERE %s", event.Database, event.Table, setString, condString)
 		sqlArgs = append(setArgs, condArgs...)
 	case core.DBDelete:
 		keys := getKeys(event.OldRow, keyColumns)
-		condString, args := genKeyValueSqlAndArgs(keys, " and ")
-		sqlString = fmt.Sprintf("delete from %s.%s where %s", event.Database, event.Table, condString)
+		condString, args := genKeyValueSqlAndArgs(keys, " AND ")
+		sqlString = fmt.Sprintf("DELETE FROM %s.%s WHERE %s", event.Database, event.Table, condString)
 		sqlArgs = args
 	default:
 	}
@@ -295,7 +295,7 @@ func LoadColumnTypes(db string, table string, cols []string, conn *sql.DB) ([]*s
 		colStat = strings.Join(cols, ",")
 	}
 
-	stat := fmt.Sprintf("select %s from %s.%s limit 1", colStat, db, table)
+	stat := fmt.Sprintf("SELECT %s FROM %s.%s LIMIT 1", colStat, db, table)
 	rows, err := conn.Query(stat)
 	if err != nil {
 		return nil, err

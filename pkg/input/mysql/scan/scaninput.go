@@ -150,8 +150,8 @@ func (in *MysqlScanInput) Start() (err error) {
 }
 
 func (in *MysqlScanInput) getTables() (tables chan *core.Table, err error) {
-	sqlStr := "select distinct table_schema, table_name from information_schema.tables " +
-		"where table_schema not in ('mysql', 'information_schema', 'performance_schema', 'sys') and table_type = 'BASE TABLE'"
+	sqlStr := "SELECT DISTINCT table_schema, table_name FROM information_schema.tables " +
+		"WHERE table_schema NOT IN ('mysql', 'information_schema', 'performance_schema', 'sys') AND table_type = 'BASE TABLE'"
 	var rows *sql.Rows
 	if rows, err = in.dbConnection.Query(sqlStr); err != nil {
 		return
@@ -421,7 +421,7 @@ func (scanner *TableScanner) generateScanSqlAndArgs(
 	minValue []interface{},
 	batch int) (string, []interface{}) {
 
-	prefix := fmt.Sprintf("select * from `%s`.`%s` where ", table.DBName, table.TableName)
+	prefix := fmt.Sprintf("SELECT * FROM %s.%s WHERE ", table.DBName, table.TableName)
 
 	var args []interface{}
 	var whereString string

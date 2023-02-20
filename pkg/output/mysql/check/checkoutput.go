@@ -390,7 +390,7 @@ func (p *TableProcessor) recheckDifferentRecords(messages []*core.Message) ([]*c
 	// try to filter the records deleted from source db recently
 	sqlString, args := generateSelectSqlAndArgs(srcTable.DBName, srcTable.TableName, srcPK, srcPK, getPKValues(destPK, messages))
 	w, arg := p.whereConditionForUpdateTime()
-	sqlString = fmt.Sprintf("%s and %s", sqlString, w)
+	sqlString = fmt.Sprintf("%s AND %s", sqlString, w)
 	args = append(args, arg)
 	data, err := p.executeSelect(sqlString, args, srcPK)
 	if err != nil {
@@ -484,7 +484,7 @@ func (p *TableProcessor) executeSelect(sqlString string, args []interface{}, sel
 }
 
 func generateSelectSqlAndArgs(db string, table string, selCols []string, pkCols []string, pkValues [][]interface{}) (string, []interface{}) {
-	sqlPrefix := fmt.Sprintf("select %s from %s.%s where (%s) in", strings.Join(selCols, ","), db, table,
+	sqlPrefix := fmt.Sprintf("SELECT %s FROM %s.%s WHERE (%s) IN", strings.Join(selCols, ","), db, table,
 		strings.Join(pkCols, ","))
 
 	batchPlaceHolders := make([]string, 0)

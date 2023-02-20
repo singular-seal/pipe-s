@@ -169,7 +169,7 @@ func columnValues(event *core.DBChangeEvent, columns []string) []interface{} {
 func (p *TableProcessor) generateInsertSql(messages []*MergedMessage) (sqlString string, sqlArgs []interface{}) {
 	msg0 := messages[0]
 	columns := msg0.originals[0].ColumnNames()
-	sqlPrefix := fmt.Sprintf("insert ignore into %s.%s (%s) values", msg0.mergedEvent.Database,
+	sqlPrefix := fmt.Sprintf("INSERT IGNORE INTO %s.%s (%s) VALUES", msg0.mergedEvent.Database,
 		msg0.mergedEvent.Table, strings.Join(columns, ","))
 	allPlaceHolders := make([]string, 0)
 	allArgs := make([]interface{}, 0)
@@ -200,7 +200,7 @@ func (p *TableProcessor) generateUpdateSql(messages []*MergedMessage) (sqlString
 	}
 
 	if len(messages) > 1 {
-		batchSql = append(batchSql, "begin")
+		batchSql = append(batchSql, "BEGIN")
 	}
 	for _, message := range messages {
 		s, as := utils.GenerateSqlAndArgs(message.mergedEvent, keyColumns)
@@ -208,7 +208,7 @@ func (p *TableProcessor) generateUpdateSql(messages []*MergedMessage) (sqlString
 		sqlArgs = append(sqlArgs, as...)
 	}
 	if len(messages) > 1 {
-		batchSql = append(batchSql, "commit")
+		batchSql = append(batchSql, "COMMIT")
 	}
 
 	sqlString = strings.Join(batchSql, ";")
@@ -216,7 +216,7 @@ func (p *TableProcessor) generateUpdateSql(messages []*MergedMessage) (sqlString
 }
 
 func (p *TableProcessor) generateDeleteSql(messages []*MergedMessage) (sqlString string, sqlArgs []interface{}) {
-	sqlString = fmt.Sprintf("delete from %s.%s where %s", messages[0].mergedEvent.Database,
+	sqlString = fmt.Sprintf("DELETE FROM %s.%s WHERE %s", messages[0].mergedEvent.Database,
 		messages[0].mergedEvent.Table, genPKColumnsIn(messages))
 	ts, _ := messages[0].originals[0].GetTableSchema()
 	for _, column := range ts.PKColumns {
@@ -235,10 +235,10 @@ func genPKColumnsIn(messages []*MergedMessage) string {
 		for i := range phs {
 			phs[i] = "?"
 		}
-		condition := fmt.Sprintf("%s in (%s)", column.Name, strings.Join(phs, ","))
+		condition := fmt.Sprintf("%s IN (%s)", column.Name, strings.Join(phs, ","))
 		conditions = append(conditions, condition)
 	}
-	return strings.Join(conditions, " and ")
+	return strings.Join(conditions, " AND ")
 }
 
 func (p *TableProcessor) filter(messages []*MergedMessage) []*MergedMessage {
