@@ -76,7 +76,7 @@ func LoadFromServer(host string, port uint16, user string, password string) (st 
 }
 
 func loadMasterStatus(conn *sql.DB) (file string, pos uint32, executedGtidSet string, err error) {
-	rows, err := conn.Query("SHOW MASTER STATUS")
+	rows, err := conn.Query("show master status")
 	if err != nil {
 		return
 	}
@@ -105,7 +105,7 @@ func loadMasterStatus(conn *sql.DB) (file string, pos uint32, executedGtidSet st
 }
 
 func loadServerID(conn *sql.DB) (serverID uint32, err error) {
-	rs, err := conn.Query("SHOW VARIABLES WHERE variable_name = 'server_id'")
+	rs, err := conn.Query("show variables where variable_name = 'server_id'")
 	if err != nil {
 		return
 	}
@@ -124,7 +124,7 @@ func loadServerID(conn *sql.DB) (serverID uint32, err error) {
 }
 
 func loadServerUUID(conn *sql.DB) (serverUUID string, err error) {
-	rs, err := conn.Query("SHOW VARIABLES WHERE variable_name = 'server_uuid'")
+	rs, err := conn.Query("show variables where variable_name = 'server_uuid'")
 	if err != nil {
 		return
 	}
@@ -143,7 +143,7 @@ func loadServerUUID(conn *sql.DB) (serverUUID string, err error) {
 }
 
 func loadGTIDIsEnabled(conn *sql.DB) (enabled bool, err error) {
-	rs, err := conn.Query("SELECT @@gtid_mode")
+	rs, err := conn.Query("select @@gtid_mode")
 	if err != nil {
 		return
 	}
@@ -162,7 +162,7 @@ func loadGTIDIsEnabled(conn *sql.DB) (enabled bool, err error) {
 }
 
 func loadPurgedGTIDSet(conn *sql.DB) (gtidSet string, err error) {
-	rs, err := conn.Query("SELECT @@gtid_purged")
+	rs, err := conn.Query("select @@gtid_purged")
 	if err != nil {
 		return
 	}
