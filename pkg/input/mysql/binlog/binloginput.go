@@ -224,7 +224,7 @@ func (in *MysqlBinlogInput) Start() (err error) {
 	return
 }
 
-func (in *MysqlBinlogInput) resolveInitState() (err error) {
+func (in *MysqlBinlogInput) loadInitialState() (err error) {
 	// set default init state to latest pos in DB if state is not set
 	if !in.stateInitialized {
 		pos, err := in.serverInfo.BinlogPosition()
@@ -258,7 +258,7 @@ func mergeGTIDSets(from string, to mysql.GTIDSet) error {
 }
 
 func (in *MysqlBinlogInput) startSync() (err error) {
-	if err = in.resolveInitState(); err != nil {
+	if err = in.loadInitialState(); err != nil {
 		return
 	}
 
@@ -326,30 +326,25 @@ func (c *EventConsumer) Handle(event *replication.BinlogEvent) (err error) {
 		metrics.UpdateTaskBinlogDelay(event.Header.Timestamp)
 	}
 
-	err = nil
 	c.currPos.BinlogPos = event.Header.LogPos
 	switch e := event.Event.(type) {
+	case *replication.RowsEvent:
+		err = c.handleRowsEvent(c.currPos, event)
+	case *replication.QueryEvent:
+		err = c.handleQueryEvent(c.currPos, e)
+	case *replication.GTIDEvent:
+		err = c.handleGTIDEvent(e)
+	case *replication.XIDEvent:
+		err = c.handleTxCommit()
 	case *replication.RotateEvent:
 		c.currPos.BinlogName = string(e.NextLogName)
 		c.currPos.BinlogPos = uint32(e.Position)
-	case *replication.GTIDEvent:
-		err = c.handleGTIDEvent(e)
-
-	case *replication.XIDEvent:
-		err = c.handleTxCommit()
-
-	case *replication.RowsEvent:
-		err = c.handleRowsEvent(c.currPos, event)
-
-	case *replication.QueryEvent:
-		err = c.handleQueryEvent(c.currPos, e)
-
+	case *replication.TableMapEvent:
 	case *replication.BeginLoadQueryEvent:
 	case *replication.ExecuteLoadQueryEvent:
-	case *replication.GenericEvent:
 	case *replication.FormatDescriptionEvent:
-	case *replication.TableMapEvent:
 	case *replication.PreviousGTIDsEvent:
+	case *replication.GenericEvent:
 
 	default:
 		c.input.GetLogger().Info("skipped binlog event type", log.String("type", utils.GetTypeName(e)),
@@ -417,15 +412,7 @@ func (c *EventConsumer) handleTxCommit() (err error) {
 	return
 }
 
-// handleRowsEvent handles mysql row change events.
-func (c *EventConsumer) handleRowsEvent(pos *core.MysqlBinlogPosition, e *replication.BinlogEvent) (err error) {
-	rowsEvent := e.Event.(*replication.RowsEvent)
-	createTime := uint64(time.Now().UnixNano())
-	dbName := string(rowsEvent.Table.Schema)
-	tableName := string(rowsEvent.Table.Table)
-	fullTableName := dbName + "." + tableName
-
-	var op string
+func getOperation(e *replication.BinlogEvent) (op string, err error) {
 	switch e.Header.EventType {
 	case replication.WRITE_ROWS_EVENTv0:
 		fallthrough
@@ -449,10 +436,25 @@ func (c *EventConsumer) handleRowsEvent(pos *core.MysqlBinlogPosition, e *replic
 		err = errors.Errorf("unknown event type:%s", e.Header.EventType.String())
 		return
 	}
+	return
+}
 
-	tableSchema, err := c.input.schemaStore.GetTable(dbName, tableName)
-	if err != nil {
-		return err
+// handleRowsEvent handles mysql row change events.
+func (c *EventConsumer) handleRowsEvent(pos *core.MysqlBinlogPosition, e *replication.BinlogEvent) (err error) {
+	rowsEvent := e.Event.(*replication.RowsEvent)
+	createTime := uint64(time.Now().UnixNano())
+	dbName := string(rowsEvent.Table.Schema)
+	tableName := string(rowsEvent.Table.Table)
+	fullTableName := dbName + "." + tableName
+
+	var op string
+	if op, err = getOperation(e); err != nil {
+		return
+	}
+
+	var tableSchema *core.Table
+	if tableSchema, err = c.input.schemaStore.GetTable(dbName, tableName); err != nil {
+		return
 	}
 
 	switch op {
