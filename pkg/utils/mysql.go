@@ -70,11 +70,11 @@ type DDLInfo struct {
 // ExtractFromDDL extracts DDL information from statement.
 func ExtractFromDDL(schema []byte, stmt ast.StmtNode) []*DDLInfo {
 	result := make([]*DDLInfo, 0)
-	switch v := stmt.(type) {
+	switch real := stmt.(type) {
 	case *ast.CreateDatabaseStmt:
 		result = append(result,
 			&DDLInfo{
-				DB:    v.Name,
+				DB:    real.Name,
 				Table: "",
 				Node:  stmt,
 			})
@@ -82,7 +82,7 @@ func ExtractFromDDL(schema []byte, stmt ast.StmtNode) []*DDLInfo {
 	case *ast.DropDatabaseStmt:
 		result = append(result,
 			&DDLInfo{
-				DB:    v.Name,
+				DB:    real.Name,
 				Table: "",
 				Node:  stmt,
 			})
@@ -90,20 +90,20 @@ func ExtractFromDDL(schema []byte, stmt ast.StmtNode) []*DDLInfo {
 	case *ast.CreateTableStmt:
 		result = append(result,
 			&DDLInfo{
-				DB:    v.Table.Schema.String(),
-				Table: v.Table.Name.String(),
+				DB:    real.Table.Schema.String(),
+				Table: real.Table.Name.String(),
 				Node:  stmt,
 			})
 
 	case *ast.DropTableStmt:
-		for i := range v.Tables {
-			dropTableStmt := *v
+		for i := range real.Tables {
+			dropTableStmt := *real
 			dropTableStmt.Tables = nil
-			dropTableStmt.Tables = append(dropTableStmt.Tables, v.Tables[i])
+			dropTableStmt.Tables = append(dropTableStmt.Tables, real.Tables[i])
 			result = append(result,
 				&DDLInfo{
-					DB:    v.Tables[i].Schema.String(),
-					Table: v.Tables[i].Name.String(),
+					DB:    real.Tables[i].Schema.String(),
+					Table: real.Tables[i].Name.String(),
 					Node:  &dropTableStmt,
 				})
 		}
@@ -111,24 +111,24 @@ func ExtractFromDDL(schema []byte, stmt ast.StmtNode) []*DDLInfo {
 	case *ast.AlterTableStmt:
 		result = append(result,
 			&DDLInfo{
-				DB:    v.Table.Schema.String(),
-				Table: v.Table.Name.String(),
+				DB:    real.Table.Schema.String(),
+				Table: real.Table.Name.String(),
 				Node:  stmt,
 			})
 
 	case *ast.TruncateTableStmt:
 		result = append(result,
 			&DDLInfo{
-				DB:    v.Table.Schema.String(),
-				Table: v.Table.Name.String(),
+				DB:    real.Table.Schema.String(),
+				Table: real.Table.Name.String(),
 				Node:  stmt,
 			})
 
 	case *ast.RenameTableStmt:
 		result = append(result,
 			&DDLInfo{
-				DB:    v.OldTable.Schema.String(),
-				Table: v.OldTable.Name.String(),
+				DB:    real.OldTable.Schema.String(),
+				Table: real.OldTable.Name.String(),
 				Node:  stmt,
 			})
 

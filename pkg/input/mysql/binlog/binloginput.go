@@ -84,7 +84,7 @@ type MysqlBinlogInput struct {
 	backupAddress   *address // backup server for current mysql server is down
 	mysqlSwitchType int      // how to handle mysql fail over
 
-	serverStatus     *ServerStatus
+	serverInfo       *ServerInfo
 	stateInitialized bool
 	replicationMode  string // sync by gtid or filepos
 
@@ -181,12 +181,12 @@ func (in *MysqlBinlogInput) startFromAddress(addr *address) (err error) {
 	}
 	in.schemaStore.SetLogger(in.GetLogger())
 
-	in.serverStatus, err = LoadFromServer(addr.host, addr.port, in.Config.User, in.Config.Password)
+	in.serverInfo, err = LoadFromServer(addr.host, addr.port, in.Config.User, in.Config.Password)
 	if err != nil {
 		in.GetLogger().Error("failed load mysql server status", log.Error(err))
 		return
 	}
-	in.GetLogger().Info("mysql server status loaded", log.String("status", in.serverStatus.String()))
+	in.GetLogger().Info("mysql server status loaded", log.String("status", in.serverInfo.String()))
 
 	// init and start sync
 	in.initSyncer(addr)
@@ -227,7 +227,7 @@ func (in *MysqlBinlogInput) Start() (err error) {
 func (in *MysqlBinlogInput) resolveInitState() (err error) {
 	// set default init state to latest pos in DB if state is not set
 	if !in.stateInitialized {
-		pos, err := in.serverStatus.BinlogPosition()
+		pos, err := in.serverInfo.BinlogPosition()
 		if err != nil {
 			return err
 		}
@@ -238,7 +238,7 @@ func (in *MysqlBinlogInput) resolveInitState() (err error) {
 	// todo find position by timestamp
 	// merge purged gtidset into full gtidset to solve the issue that start syncing with gtidset which doesn't
 	// include the purged gtidset and fails with error.
-	if err = mergeGTIDSets(in.serverStatus.PurgedGtidSet, in.eventConsumer.currPos.GTIDSet); err != nil {
+	if err = mergeGTIDSets(in.serverInfo.PurgedGtidSet, in.eventConsumer.currPos.GTIDSet); err != nil {
 		return
 	}
 	return
@@ -284,7 +284,7 @@ func (in *MysqlBinlogInput) startSync() (err error) {
 func (in *MysqlBinlogInput) setReplicationMode() error {
 	switch in.Config.ReplicationMode {
 	case ReplicationModeGtid:
-		if !in.serverStatus.GtidEnabled {
+		if !in.serverInfo.GtidEnabled {
 			return errors.Errorf("gtid not supported by mysql server")
 		}
 		in.replicationMode = ReplicationModeGtid
@@ -292,7 +292,7 @@ func (in *MysqlBinlogInput) setReplicationMode() error {
 		in.replicationMode = ReplicationModeFilepos
 
 	default:
-		if in.serverStatus.GtidEnabled {
+		if in.serverInfo.GtidEnabled {
 			in.replicationMode = ReplicationModeGtid
 		} else {
 			in.replicationMode = ReplicationModeFilepos
