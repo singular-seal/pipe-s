@@ -2,7 +2,6 @@ package binlog
 
 import (
 	"bytes"
-	"encoding/hex"
 	"fmt"
 	"github.com/go-mysql-org/go-mysql/mysql"
 	"github.com/go-mysql-org/go-mysql/replication"
@@ -414,23 +413,11 @@ func (c *EventConsumer) handleTxCommit() (err error) {
 
 func getOperation(e *replication.BinlogEvent) (op string, err error) {
 	switch e.Header.EventType {
-	case replication.WRITE_ROWS_EVENTv0:
-		fallthrough
-	case replication.WRITE_ROWS_EVENTv1:
-		fallthrough
-	case replication.WRITE_ROWS_EVENTv2:
+	case replication.WRITE_ROWS_EVENTv0, replication.WRITE_ROWS_EVENTv1, replication.WRITE_ROWS_EVENTv2:
 		op = core.DBInsert
-	case replication.UPDATE_ROWS_EVENTv0:
-		fallthrough
-	case replication.UPDATE_ROWS_EVENTv1:
-		fallthrough
-	case replication.UPDATE_ROWS_EVENTv2:
+	case replication.UPDATE_ROWS_EVENTv0, replication.UPDATE_ROWS_EVENTv1, replication.UPDATE_ROWS_EVENTv2:
 		op = core.DBUpdate
-	case replication.DELETE_ROWS_EVENTv0:
-		fallthrough
-	case replication.DELETE_ROWS_EVENTv1:
-		fallthrough
-	case replication.DELETE_ROWS_EVENTv2:
+	case replication.DELETE_ROWS_EVENTv0, replication.DELETE_ROWS_EVENTv1, replication.DELETE_ROWS_EVENTv2:
 		op = core.DBDelete
 	default:
 		err = errors.Errorf("unknown event type:%s", e.Header.EventType.String())
@@ -441,16 +428,16 @@ func getOperation(e *replication.BinlogEvent) (op string, err error) {
 
 // handleRowsEvent handles mysql row change events.
 func (c *EventConsumer) handleRowsEvent(pos *core.MysqlBinlogPosition, e *replication.BinlogEvent) (err error) {
+	var op string
+	if op, err = getOperation(e); err != nil {
+		return
+	}
+
 	rowsEvent := e.Event.(*replication.RowsEvent)
 	createTime := uint64(time.Now().UnixNano())
 	dbName := string(rowsEvent.Table.Schema)
 	tableName := string(rowsEvent.Table.Table)
 	fullTableName := dbName + "." + tableName
-
-	var op string
-	if op, err = getOperation(e); err != nil {
-		return
-	}
 
 	var tableSchema *core.Table
 	if tableSchema, err = c.input.schemaStore.GetTable(dbName, tableName); err != nil {
@@ -468,10 +455,8 @@ func (c *EventConsumer) handleRowsEvent(pos *core.MysqlBinlogPosition, e *replic
 	case core.DBUpdate:
 		if len(rowsEvent.Rows)%2 != 0 {
 			c.input.GetLogger().Error("odd update event rows", log.String("event_id",
-				c.input.genEventID(c.currPos, c.transactionOffset, 0)),
-				log.String("event", hex.EncodeToString(e.RawData)))
+				c.input.genEventID(c.currPos, c.transactionOffset, 0)))
 		}
-
 		for i := 0; i < len(rowsEvent.Rows)-1; i += 2 {
 			c.transactionOffset++
 			m := c.newDMLMessage(pos, i/2, e, createTime, fullTableName, op, tableSchema)

@@ -34,7 +34,7 @@ func InitTableState(state *TableState, table *core.Table, conn *sql.DB) (err err
 }
 
 func GetRowCount(dbName string, tableName string, conn *sql.DB) (int64, error) {
-	statement := fmt.Sprintf("SELECT table_rows FROM information_schema.tables WHERE table_schema = '%s' AND table_name = '%s'", dbName, tableName)
+	statement := fmt.Sprintf("SELECT TABLE_ROWS FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s'", dbName, tableName)
 	var count sql.NullInt64
 	row := conn.QueryRow(statement)
 	if err := row.Scan(&count); err != nil {
