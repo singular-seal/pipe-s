@@ -1,9 +1,7 @@
 package kafka
 
 import (
-	"bytes"
 	"context"
-	"encoding/binary"
 	"fmt"
 	"github.com/Shopify/sarama"
 	"github.com/pkg/errors"
@@ -33,15 +31,15 @@ type KafkaOutput struct {
 }
 
 type KafkaOutputConfig struct {
-	ID                    string
-	KeyVariable           string // kafka partition key variable name
-	TopicName             string // kafka topic name can be specified by TopicName or passed as a variable by
-	TopicVariable         string // TopicVariable
-	ServerAddresses       []string
-	FlushBatch            int    // SaramaConfig.Producer.Flush.Messages and SaramaConfig.Producer.Flush.MaxMessages
-	MaxMessageBytes       int    // SaramaConfig.Producer.MaxMessageBytes
-	BlockWhenSizeTooLarge bool   // Whether block producing if message size too large error happens
-	RequiredAcks          string // SaramaConfig.Producer.RequiredAcks
+	ID              string
+	KeyVariable     string // kafka partition key variable name
+	TopicName       string // kafka topic name can be specified by TopicName or passed as a variable by
+	TopicVariable   string // TopicVariable
+	ServerAddresses []string
+	FlushBatch      int    // SaramaConfig.Producer.Flush.Messages and SaramaConfig.Producer.Flush.MaxMessages
+	MaxMessageBytes int    // SaramaConfig.Producer.MaxMessageBytes
+	BlockOnHugeMsg  bool   // Whether block producing if message size too large error happens
+	RequiredAcks    string // SaramaConfig.Producer.RequiredAcks
 }
 
 func NewKafkaOutput() *KafkaOutput {
@@ -62,7 +60,7 @@ func (o *KafkaOutput) Start() (err error) {
 	go o.handleAck()
 
 	o.heartbeatTicker = time.NewTicker(time.Duration(DefaultHeartbeatInterval) * time.Second)
-	go o.heartbeat()
+	go o.sendHeartbeat()
 
 	return
 }
@@ -132,7 +130,7 @@ func (o *KafkaOutput) Configure(config core.StringMap) (err error) {
 }
 
 func (o *KafkaOutput) Process(m *core.Message) {
-	// find all topics for heart beat
+	// find all topics for heartbeat
 	if len(o.config.TopicVariable) > 0 {
 		if obj, ok := m.GetVariable(o.config.TopicVariable); ok {
 			tn := obj.(string)
@@ -142,7 +140,7 @@ func (o *KafkaOutput) Process(m *core.Message) {
 		}
 	}
 
-	km, err := o.createKafkaMessage(m)
+	km, err := o.newKafkaMessage(m)
 	if err != nil {
 		o.GetInput().Ack(m, err)
 		return
@@ -154,64 +152,47 @@ func (o *KafkaOutput) Process(m *core.Message) {
 	}
 }
 
-func (o *KafkaOutput) sendWithTimeout(message *sarama.ProducerMessage) error {
+func (o *KafkaOutput) sendWithTimeout(msg *sarama.ProducerMessage) error {
 	select {
-	case o.producer.Input() <- message:
+	case o.producer.Input() <- msg:
 	case <-time.After(DefaultSendTimeout):
-		return errors.Errorf("KafkaOutput send timeout %s", message.Topic)
+		return errors.Errorf("KafkaOutput send timeout %s", msg.Topic)
 	}
 	return nil
 }
 
-func (o *KafkaOutput) createKafkaMessage(m *core.Message) (*sarama.ProducerMessage, error) {
+func (o *KafkaOutput) newKafkaMessage(m *core.Message) (*sarama.ProducerMessage, error) {
 	data, ok := m.Data.([]byte)
 	if !ok {
 		return nil, errors.Errorf("KafkaOutput no bytes in msg, id %s", m.Header.ID)
 	}
-	var message *sarama.ProducerMessage
-	var topicName string
 
+	var msg *sarama.ProducerMessage
+	var topic string
 	if len(o.config.TopicVariable) > 0 {
 		if obj, ok := m.GetVariable(o.config.TopicVariable); ok {
-			topicName = obj.(string)
+			topic = obj.(string)
 		} else {
 			return nil, errors.Errorf("KafkaOutput can't get TopicVariable, id %s", m.Header.ID)
 		}
 	} else {
-		topicName = o.config.TopicName
+		topic = o.config.TopicName
 	}
 
-	message = &sarama.ProducerMessage{
-		Topic:    topicName,
+	msg = &sarama.ProducerMessage{
+		Topic:    topic,
 		Value:    sarama.ByteEncoder(data),
 		Metadata: m,
 	}
 
 	if len(o.config.KeyVariable) > 0 {
 		if k, ok := m.GetVariable(o.config.KeyVariable); ok {
-			message.Key = sarama.ByteEncoder(fmt.Sprint(k))
+			msg.Key = sarama.ByteEncoder(fmt.Sprint(k))
 		} else {
 			return nil, errors.Errorf("key var not found, msg id %s", m.Header.ID)
 		}
 	}
-	return message, nil
-}
-
-func (o *KafkaOutput) encodeBinary(value interface{}) ([]byte, error) {
-	stringVal, ok1 := value.(string)
-	if ok1 {
-		return ([]byte)(stringVal), nil
-	}
-	bytesVal, ok2 := value.([]byte)
-	if ok2 {
-		return bytesVal, nil
-	}
-	buf := new(bytes.Buffer)
-	err := binary.Write(buf, binary.LittleEndian, value)
-	if err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
+	return msg, nil
 }
 
 func (o *KafkaOutput) handleAck() {
@@ -238,7 +219,7 @@ func (o *KafkaOutput) handleAck() {
 				o.RaiseError(errors.Errorf("KafkaOutput invalid metadata, key %s, value %s", prodErr.Msg.Key,
 					prodErr.Msg.Value))
 				return
-			} else if !o.config.BlockWhenSizeTooLarge && prodErr.Err == sarama.ErrMessageSizeTooLarge {
+			} else if !o.config.BlockOnHugeMsg && prodErr.Err == sarama.ErrMessageSizeTooLarge {
 				o.GetLogger().Info("KafkaOutput msg too large", log.String("id", orgMsg.Header.ID),
 					log.Int("size", prodErr.Msg.Value.Length()))
 				o.GetInput().Ack(orgMsg, nil)
@@ -253,8 +234,8 @@ func (o *KafkaOutput) handleAck() {
 	}
 }
 
-// heartbeat is to fix the sarama issue that Client will timeout if there's no data during the period
-func (o *KafkaOutput) heartbeat() {
+// sendHeartbeat is to fix the sarama issue that Client will timeout if there's no data during the period
+func (o *KafkaOutput) sendHeartbeat() {
 	for {
 		select {
 		case <-o.heartbeatTicker.C:
@@ -273,13 +254,13 @@ func (o *KafkaOutput) checkBrokers() (err error) {
 	}
 	brokers := o.client.Brokers()
 	tns := make([]string, 0)
-	for k, _ := range o.topicNames {
-		tns = append(tns, k)
+	for t, _ := range o.topicNames {
+		tns = append(tns, t)
 	}
-	for _, broker := range brokers {
+	for _, b := range brokers {
 		req := &sarama.MetadataRequest{Topics: tns}
 		req.Version = 5
-		_, err = broker.GetMetadata(req)
+		_, err = b.GetMetadata(req)
 	}
 	return
 }
