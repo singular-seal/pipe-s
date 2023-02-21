@@ -433,8 +433,8 @@ func (c *EventConsumer) handleRowsEvent(pos *core.MysqlBinlogPosition, e *replic
 		return
 	}
 
-	rowsEvent := e.Event.(*replication.RowsEvent)
 	createTime := uint64(time.Now().UnixNano())
+	rowsEvent := e.Event.(*replication.RowsEvent)
 	dbName := string(rowsEvent.Table.Schema)
 	tableName := string(rowsEvent.Table.Table)
 	fullTableName := dbName + "." + tableName

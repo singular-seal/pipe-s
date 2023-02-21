@@ -55,7 +55,6 @@ type TableScanner struct {
 	tables    chan *core.Table
 	scanState *sync.Map
 	logger    *log.Logger
-	hasError  bool
 }
 
 func NewTableScanner(id int, input *MysqlScanInput, tables chan *core.Table) *TableScanner {
@@ -66,7 +65,6 @@ func NewTableScanner(id int, input *MysqlScanInput, tables chan *core.Table) *Ta
 		tables:    tables,
 		scanState: input.scanState,
 		logger:    input.GetLogger(),
-		hasError:  false,
 	}
 	return scanner
 }
@@ -139,9 +137,9 @@ func (in *MysqlScanInput) Start() (err error) {
 	}
 
 	for i := 0; i < in.Config.Concurrency; i++ {
-		scanner := NewTableScanner(i, in, tables)
-		in.tableScanners = append(in.tableScanners, scanner)
-		err = scanner.start()
+		s := NewTableScanner(i, in, tables)
+		in.tableScanners = append(in.tableScanners, s)
+		err = s.start()
 		if err != nil {
 			return
 		}
@@ -150,14 +148,14 @@ func (in *MysqlScanInput) Start() (err error) {
 }
 
 func (in *MysqlScanInput) getTables() (tables chan *core.Table, err error) {
-	sqlStr := "SELECT DISTINCT table_schema, table_name FROM information_schema.tables " +
-		"WHERE table_schema NOT IN ('mysql', 'information_schema', 'performance_schema', 'sys') AND table_type = 'BASE TABLE'"
+	sqlStr := "SELECT DISTINCT TABLE_SCHEMA, TABLE_NAME FROM INFORMATION_SCHEMA.TABLES " +
+		"WHERE TABLE_SCHEMA NOT IN ('mysql', 'information_schema', 'performance_schema', 'sys') AND TABLE_TYPE = 'BASE TABLE'"
 	var rows *sql.Rows
 	if rows, err = in.dbConnection.Query(sqlStr); err != nil {
 		return
 	}
 
-	tabCount := 0
+	tc := 0
 	tabs := make([][2]string, 0)
 	tableReg := regexp.MustCompile(in.Config.TableNameRegex)
 	for rows.Next() {
@@ -167,7 +165,7 @@ func (in *MysqlScanInput) getTables() (tables chan *core.Table, err error) {
 		}
 
 		if tableReg.MatchString(fmt.Sprintf("%s.%s", dbName, tableName)) {
-			tabCount++
+			tc++
 			tabs = append(tabs, [2]string{dbName, tableName})
 		}
 	}
@@ -182,15 +180,15 @@ func (in *MysqlScanInput) getTables() (tables chan *core.Table, err error) {
 		in.GetLogger().Info("scan table", log.String("", fmt.Sprintf("%s.%s", each[0], each[1])))
 	}
 
-	workChan := make(chan *core.Table, tabCount)
+	wc := make(chan *core.Table, tc)
 	for _, tab := range tabs {
 		var ts *core.Table
 		if ts, err = in.schemaStore.GetTable(tab[0], tab[1]); err != nil {
 			return
 		}
-		workChan <- ts
+		wc <- ts
 	}
-	return workChan, nil
+	return wc, nil
 }
 
 func (in *MysqlScanInput) newDMLMessage(row []interface{}, pkVal []interface{}, createTime uint64, table *core.Table) *core.Message {
@@ -241,21 +239,21 @@ func (in *MysqlScanInput) GetState() ([]byte, bool) {
 	}
 
 	done := true
-	dumpState := make(map[string]*TableState)
+	scanState := make(map[string]*TableState)
 	in.scanState.Range(func(key, value interface{}) bool {
-		tableState := value.(*TableState)
-		tableKey := key.([2]string)
-		if len(tableKey[0]) == 0 || len(tableKey[1]) == 0 {
+		ts := value.(*TableState)
+		tk := key.([2]string)
+		if len(tk[0]) == 0 || len(tk[1]) == 0 {
 			return true
 		}
-		if !tableState.Done {
+		if !ts.Done {
 			done = false
 		}
 
-		if obj := tableState.ColumnStatesValue.Load(); obj != nil {
-			tableState.ColumnStates = obj.([]interface{})
+		if obj := ts.ColumnStatesValue.Load(); obj != nil {
+			ts.ColumnStates = obj.([]interface{})
 		}
-		dumpState[fmt.Sprintf("%s.%s", tableKey[0], tableKey[1])] = tableState
+		scanState[fmt.Sprintf("%s.%s", tk[0], tk[1])] = ts
 		return true
 	})
 
@@ -263,7 +261,7 @@ func (in *MysqlScanInput) GetState() ([]byte, bool) {
 		in.GetLogger().Info("task done")
 	}
 
-	result, err := json.Marshal(dumpState)
+	result, err := json.Marshal(scanState)
 	if err != nil {
 		in.GetLogger().Error("marshal state error", log.Error(err))
 	}
@@ -275,13 +273,13 @@ func (in *MysqlScanInput) SetState(state []byte) (err error) {
 		return
 	}
 
-	var dumpState map[string]*TableState
+	var scanState map[string]*TableState
 	scanStateMap := sync.Map{}
-	if err = json.Unmarshal(state, &dumpState); err != nil {
+	if err = json.Unmarshal(state, &scanState); err != nil {
 		return
 	}
 
-	for k, v := range dumpState {
+	for k, v := range scanState {
 		parts := strings.Split(k, ".")
 		if len(parts) != 2 {
 			return errors.Errorf("wrong table name:%s", k)
@@ -355,12 +353,10 @@ func (scanner *TableScanner) scanTable(table *core.Table) (err error) {
 
 	for {
 		// scan table, it scans BatchSize+1 records in which the last record helps use to locate the start of next batch and the last batch
-		statement, args := scanner.generateScanSqlAndArgs(table, table.PKColumnNames(), minValue, scanner.batchSize+1)
-		//scanner.logger.Debug("start scan", log.String("db", table.DBName), log.String("table", table.TableName),
-		//	log.String("pk", fmt.Sprint(minValue)))
+		stat, args := scanner.generateScanSqlAndArgs(table, table.PKColumnNames(), minValue, scanner.batchSize+1)
 
 		var rows *sql.Rows
-		if rows, err = scanner.input.dbConnection.Query(statement, args...); err != nil {
+		if rows, err = scanner.input.dbConnection.Query(stat, args...); err != nil {
 			return
 		}
 
@@ -435,7 +431,7 @@ func (scanner *TableScanner) generateScanSqlAndArgs(
 	}
 
 	orderByString := strings.Join(scanColumns, ", ")
-	query := fmt.Sprintf("%s%s order by %s limit ?", prefix, whereString, orderByString)
+	query := fmt.Sprintf("%s%s ORDER BY %s LIMIT ?", prefix, whereString, orderByString)
 	args = append(args, batch)
 	return query, args
 }
