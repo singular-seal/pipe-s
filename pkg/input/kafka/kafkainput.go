@@ -69,27 +69,26 @@ func (in *KafkaInput) Start() (err error) {
 		return
 	}
 
-	consumer := Consumer{
+	mc := MessageConsumer{
 		ready: make(chan bool),
 		input: in,
 	}
-
 	ctx, cancel := context.WithCancel(context.Background())
 	in.cancelFunction = cancel
 	go func() {
 		for {
-			if err = in.kafkaClient.Consume(ctx, in.config.Topics, &consumer); err != nil {
+			if err = in.kafkaClient.Consume(ctx, in.config.Topics, &mc); err != nil {
 				in.GetLogger().Error("KafkaInput connect fail", log.Error(err))
 			}
 			// check if context was cancelled, signaling that the consumer should stop
 			if ctx.Err() != nil {
 				return
 			}
-			consumer.ready = make(chan bool)
+			mc.ready = make(chan bool)
 		}
 	}()
 	// wait till the consumer has been set up
-	<-consumer.ready
+	<-mc.ready
 	in.GetLogger().Info("KafkaInput started")
 	return
 }
@@ -134,38 +133,39 @@ func (in *KafkaInput) GetState() ([]byte, bool) {
 	return state, err != nil
 }
 
-type Consumer struct {
+type MessageConsumer struct {
 	ready chan bool
 	input *KafkaInput
 }
 
-func (consumer *Consumer) Setup(sarama.ConsumerGroupSession) error {
-	close(consumer.ready)
+func (mc *MessageConsumer) Setup(sarama.ConsumerGroupSession) error {
+	close(mc.ready)
 	return nil
 }
 
-func (consumer *Consumer) Cleanup(sarama.ConsumerGroupSession) error {
+func (mc *MessageConsumer) Cleanup(sarama.ConsumerGroupSession) error {
 	return nil
 }
 
-func (consumer *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) (err error) {
-	for message := range claim.Messages() {
-		m := core.NewMessage(core.TypeByte)
-		m.Header.ID = fmt.Sprintf("%s.%d.%d", message.Topic, message.Partition, message.Offset)
+func (mc *MessageConsumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) (err error) {
+	for msg := range claim.Messages() {
+		m := core.NewMessage(core.TypeBytes)
+		m.Header.ID = fmt.Sprintf("%s.%d.%d", msg.Topic, msg.Partition, msg.Offset)
 		m.Header.CreateTime = uint64(time.Now().UnixNano())
-		m.Data = message.Value
-		m.SetMeta(core.MetaKafkaConsumerSession, session)
-		position := &KafkaPosition{
-			Topic:     message.Topic,
-			Partition: message.Partition,
-			Offset:    message.Offset,
-			Timestamp: message.Timestamp.Unix(),
-		}
-		m.SetMeta(core.MetaKafkaConsumerPosition, position)
+		m.Data = msg.Value
 
-		consumer.input.sendLock.Lock()
-		consumer.input.GetOutput().Process(m)
-		consumer.input.sendLock.Unlock()
+		pos := &KafkaPosition{
+			Topic:     msg.Topic,
+			Partition: msg.Partition,
+			Offset:    msg.Offset,
+			Timestamp: msg.Timestamp.Unix(),
+		}
+		m.SetMeta(core.MetaKafkaConsumerPosition, pos)
+		m.SetMeta(core.MetaKafkaConsumerSession, session)
+
+		mc.input.sendLock.Lock()
+		mc.input.GetOutput().Process(m)
+		mc.input.sendLock.Unlock()
 	}
 	return
 }

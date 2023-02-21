@@ -7,10 +7,10 @@ import (
 )
 
 const (
-	TypeDML      = "dml"
-	TypeJsonByte = "json_byte"
-	TypeByte     = "byte"
-	TypeDBChange = "db_change"
+	TypeDML       = "dml"
+	TypeJsonBytes = "json_bytes"
+	TypeBytes     = "bytes"
+	TypeDBChange  = "db_change"
 )
 
 const (

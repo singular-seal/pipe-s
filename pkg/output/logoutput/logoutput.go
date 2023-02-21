@@ -17,7 +17,7 @@ func NewLogOutput() *LogOutput {
 }
 
 func (out *LogOutput) Process(msg *core.Message) {
-	if msg.Type == core.TypeJsonByte {
+	if msg.Type == core.TypeJsonBytes {
 		out.GetLogger().Info("msg", log.String("id", msg.Header.ID), log.String("data", string(msg.Data.([]byte))))
 	} else {
 		out.GetLogger().Info("msg", log.String("id", msg.Header.ID))
