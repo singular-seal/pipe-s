@@ -42,11 +42,11 @@ type DefaultTask struct {
 	config              core.StringMap
 	syncStateIntervalMS int
 
-	stateStore      core.StateStore
-	pipeline        core.Pipeline
-	stopWaitContext context.Context
-	stopCancel      context.CancelFunc
-	stopOnce        sync.Once
+	stateStore core.StateStore
+	pipeline   core.Pipeline
+	stopCtx    context.Context
+	stopCancel context.CancelFunc
+	stopOnce   sync.Once
 
 	lastError error // the last error in the executed pipeline
 	logger    *log.Logger
@@ -55,9 +55,9 @@ type DefaultTask struct {
 func NewTask(config core.StringMap) Task {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	return &DefaultTask{
-		config:          config,
-		stopWaitContext: ctx,
-		stopCancel:      cancelFunc,
+		config:     config,
+		stopCtx:    ctx,
+		stopCancel: cancelFunc,
 	}
 }
 
@@ -129,7 +129,7 @@ func (t *DefaultTask) syncState() {
 			t.logger.Error("stop on error", log.Error(err))
 			t.lastError = err
 			go t.Stop()
-		case <-t.stopWaitContext.Done():
+		case <-t.stopCtx.Done():
 			return
 		case <-ticker.C:
 			state, done := t.pipeline.GetState()
@@ -140,7 +140,7 @@ func (t *DefaultTask) syncState() {
 			}
 			if done {
 				go t.Stop()
-				<-t.stopWaitContext.Done()
+				<-t.stopCtx.Done()
 				return
 			}
 		}
@@ -194,7 +194,7 @@ func (t *DefaultTask) Start() (err error) {
 	case <-utils.SignalQuit():
 		t.logger.Info("stopping task", log.String("reason", "sig quit"))
 		t.Stop()
-	case <-t.stopWaitContext.Done():
+	case <-t.stopCtx.Done():
 	}
 
 	t.logger.Info("start function exited from blocking", log.Error(t.lastError))
