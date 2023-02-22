@@ -126,6 +126,10 @@ func (t *DefaultTask) syncState() {
 	for {
 		select {
 		case err := <-t.pipeline.Errors():
+			// save state before stop on error
+			if state, _ := t.pipeline.GetState(); state != nil {
+				t.stateStore.Save(StateKey, state)
+			}
 			t.logger.Error("stop on error", log.Error(err))
 			t.lastError = err
 			go t.Stop()
