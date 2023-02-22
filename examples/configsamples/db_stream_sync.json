@@ -6,7 +6,7 @@
       "ID": "default",
       "Type": "file",
       "Path": "/Users/xxx/development/1.data",
-      "SaveIntervalMS": 10000
+      "SyncIntervalMS": 10000
     },
     "PProfPort": 7777,
     "Metrics": {

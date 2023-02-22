@@ -5,7 +5,7 @@
       "ID": "default",
       "Type": "file",
       "Path": "/Users/abc/1.data",
-      "SaveIntervalMS": 15000
+      "SyncIntervalMS": 15000
     },
     "Pipeline": {
       "ID": "fork-pipeline",

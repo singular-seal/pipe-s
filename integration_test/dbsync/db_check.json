@@ -6,7 +6,7 @@
       "ID": "default",
       "Type": "file",
       "Path": "db_check_state_store.data",
-      "SaveIntervalMS": 10000
+      "SyncIntervalMS": 10000
     },
     "Pipeline": {
       "ID": "hello-world-pipeline",
