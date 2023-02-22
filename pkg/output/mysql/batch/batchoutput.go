@@ -43,11 +43,11 @@ type MysqlBatchOutputConfig struct {
 	TableConcurrency int
 	FlushIntervalMS  int64
 	FlushBatchSize   int
-	// if exec insert, update, delete and replace micro batches concurrently, will cost more db connections
-	ExecCRUDConcurrentlyInBatch bool
 	// max sql statements sent in one api call, restricted by column counts and mysql server side restriction
 	// needn't change this normally
 	SqlBatchSize int
+	// if exec insert, update, delete and replace micro batches concurrently, will cost more db connections
+	ExecCRUDConcurrentlyInBatch bool
 }
 
 func NewMysqlBatchOutput() *MysqlBatchOutput {

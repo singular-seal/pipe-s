@@ -22,13 +22,13 @@ type SimpleSchemaStore struct {
 
 func NewSimpleSchemaStoreWithParameters(host string, port uint16, user string, password string) (*SimpleSchemaStore, error) {
 	InitGlobal()
-	client, err := utils.CreateMysqlConnection(host, port, user, password)
+	connection, err := utils.CreateMysqlConnection(host, port, user, password)
 	if err != nil {
 		return nil, err
 	}
 	return &SimpleSchemaStore{
 		schemas: make(map[string]map[string]*core.Table),
-		conn:    client,
+		conn:    connection,
 		ownConn: true,
 	}, nil
 }
@@ -104,7 +104,7 @@ func (s *SimpleSchemaStore) DeleteTable(db string, table string) error {
 
 // readFromDB fetches table schema from database
 func (s *SimpleSchemaStore) readFromDB(db string, table string) (ts *core.Table, err error) {
-	stmt := fmt.Sprintf("show columns from %s.%s", db, table)
+	stmt := fmt.Sprintf("SHOW COLUMNS FROM %s.%s", db, table)
 	rows, err := s.conn.Query(stmt)
 	if err != nil {
 		sqlErr, ok := err.(*mysql.MySQLError)

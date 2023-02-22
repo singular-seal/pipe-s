@@ -10,8 +10,8 @@ import (
 
 var ColumnNameTypeMapping map[string]core.ColumnType
 
-// pattern for strings like 'bigint unsigned' varchar(255) which are returned from 'show columns from ...'
-var columnTypePattern = regexp.MustCompile(`^(?P<type>\w+)(\((?P<arg1>.+?)(,.+)*\))?`)
+// regex for strings like 'bigint unsigned' varchar(255) which are returned from 'show columns from ...'
+var columnTypeRegex = regexp.MustCompile(`^(?P<type>\w+)(\((?P<arg1>.+?)(,.+)*\))?`)
 
 var initOnce sync.Once
 
@@ -69,16 +69,14 @@ func getWidth(arg string) int {
 // fillTypeInfo fills column schema with type info
 func fillTypeInfo(column *core.Column) {
 	rawType := column.RawType
-	matches := columnTypePattern.FindStringSubmatch(rawType)
+	matches := columnTypeRegex.FindStringSubmatch(rawType)
 	typeString := matches[1]
 	arg1 := matches[3]
 	unsigned := strings.Contains(strings.ToLower(rawType), "unsigned")
 
 	switch typeString {
-	case "decimal":
+	case "date", "enum", "set", "json":
 		column.Type = ColumnNameTypeMapping[typeString]
-		column.Length = getWidth(arg1)
-		column.IsUnsigned = unsigned
 	case "tinyint", "smallint", "mediumint", "int", "bigint", "float", "double":
 		column.Type = ColumnNameTypeMapping[typeString]
 		column.IsUnsigned = unsigned
@@ -86,8 +84,10 @@ func fillTypeInfo(column *core.Column) {
 		"tinyblob", "mediumblob", "longblob", "tinytext", "mediumtext", "longtext":
 		column.Type = ColumnNameTypeMapping[typeString]
 		column.Length = getWidth(arg1)
-	case "date", "enum", "set", "json":
+	case "decimal":
 		column.Type = ColumnNameTypeMapping[typeString]
+		column.Length = getWidth(arg1)
+		column.IsUnsigned = unsigned
 	default:
 		column.Type = core.TypeOther
 	}
