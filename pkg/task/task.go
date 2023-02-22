@@ -116,10 +116,10 @@ func (t *DefaultTask) startPprof() {
 	}()
 }
 
-// syncState load state from pipeline and save to state store periodically.
-func (t *DefaultTask) syncState() {
-	ticker := time.NewTicker(time.Duration(t.saveStateIntervalMS) * time.Millisecond)
-	defer ticker.Stop()
+// saveState load state from pipeline and save to state store periodically.
+func (t *DefaultTask) saveState() {
+	stateTicker := time.NewTicker(time.Duration(t.saveStateIntervalMS) * time.Millisecond)
+	defer stateTicker.Stop()
 	stop := false
 	for {
 		select {
@@ -129,7 +129,7 @@ func (t *DefaultTask) syncState() {
 			go t.Stop()
 		case <-t.stopChan:
 			stop = true
-		case <-ticker.C:
+		case <-stateTicker.C:
 		}
 		state, done := t.pipeline.GetState()
 
@@ -163,7 +163,7 @@ func (t *DefaultTask) start() (err error) {
 	if err = t.pipeline.Start(); err != nil {
 		return
 	}
-	go t.syncState()
+	go t.saveState()
 	return
 }
 
