@@ -161,7 +161,7 @@ func NewTableProcessor(db string, table string, output *MysqlCheckOutput) (*Tabl
 }
 
 func (p *TableProcessor) Run() {
-	p.lastFlushTime = time.Now().UnixNano() / 1e6
+	p.lastFlushTime = time.Now().UnixMilli()
 
 	go func() {
 		ticker := utils.IntervalCheckTicker(p.output.config.TableFlushIntervalMS)
@@ -172,7 +172,7 @@ func (p *TableProcessor) Run() {
 				p.logger.Info("processor exit", log.String("fullTableName", p.fullTableName))
 				return
 			case <-ticker.C:
-				if time.Now().UnixNano()/1e6-p.lastFlushTime > p.output.config.TableFlushIntervalMS {
+				if time.Now().UnixMilli()-p.lastFlushTime > p.output.config.TableFlushIntervalMS {
 					p.Flush()
 				}
 			case <-p.flushSig:
@@ -183,20 +183,20 @@ func (p *TableProcessor) Run() {
 }
 
 func (p *TableProcessor) Flush() {
-	p.lastFlushTime = time.Now().UnixNano() / 1e6
+	p.lastFlushTime = time.Now().UnixMilli()
 	size := len(p.messages)
 	if size == 0 {
 		return
 	}
 
-	messages := make([]*core.Message, 0)
+	ms := make([]*core.Message, 0)
 	for i := 0; i < size; i++ {
-		messages = append(messages, <-p.messages)
+		ms = append(ms, <-p.messages)
 	}
 
-	err := p.check(messages)
-	for _, message := range messages {
-		p.output.GetInput().Ack(message, err)
+	err := p.check(ms)
+	for _, m := range ms {
+		p.output.GetInput().Ack(m, err)
 	}
 }
 
@@ -208,7 +208,7 @@ func (p *TableProcessor) check(messages []*core.Message) error {
 	if err != nil {
 		return err
 	}
-	diffItems, err := p.checkData(messages, target, pkCols)
+	diffItems, err := p.doCheckData(messages, target, pkCols)
 	if err != nil {
 		return err
 	}
@@ -233,22 +233,22 @@ func (p *TableProcessor) reportResult(diffItems []*checkOutputItem) error {
 }
 
 type checkOutputItem struct {
-	DBName      string
-	TableName   string
-	ErrorType   string
-	ExpectedRow map[string]interface{}
-	RealRow     map[string]interface{}
+	db          string
+	table       string
+	errorType   string
+	expectedRow map[string]interface{}
+	realRow     map[string]interface{}
 }
 
 func (i *checkOutputItem) String() string {
-	t := fmt.Sprintf("err:%s db:%s table:%s ", i.ErrorType, i.DBName, i.TableName)
+	t := fmt.Sprintf("err:%s db:%s table:%s ", i.errorType, i.db, i.table)
 	pairs := make([]string, 0)
-	for k, v := range i.ExpectedRow {
+	for k, v := range i.expectedRow {
 		pairs = append(pairs, fmt.Sprintf("%s:%v", k, v))
 	}
 	e := fmt.Sprintf("expected:%s", strings.Join(pairs, " "))
 	pairs = make([]string, 0)
-	for k, v := range i.RealRow {
+	for k, v := range i.realRow {
 		pairs = append(pairs, fmt.Sprintf("%s:%v", k, v))
 	}
 	r := fmt.Sprintf("real:%s", strings.Join(pairs, " "))
@@ -290,7 +290,7 @@ func pkValue(data map[string]interface{}, pkCols []string) interface{} {
 	}
 }
 
-func (p *TableProcessor) checkData(sourceMessages []*core.Message, targetData []map[string]interface{},
+func (p *TableProcessor) doCheckData(sourceMessages []*core.Message, targetData []map[string]interface{},
 	pkColumns []string) (diffItems []*checkOutputItem, err error) {
 
 	misses := make([]*core.Message, 0)
@@ -323,11 +323,11 @@ func (p *TableProcessor) checkData(sourceMessages []*core.Message, targetData []
 	for _, each := range misses {
 		event := each.Data.(*core.DBChangeEvent)
 		item := &checkOutputItem{
-			DBName:      event.Database,
-			TableName:   event.Table,
-			ErrorType:   ErrorTypeRowMiss,
-			ExpectedRow: event.GetRow(),
-			RealRow:     nil,
+			db:          event.Database,
+			table:       event.Table,
+			errorType:   ErrorTypeRowMiss,
+			expectedRow: event.GetRow(),
+			realRow:     nil,
 		}
 		diffItems = append(diffItems, item)
 	}
@@ -335,11 +335,11 @@ func (p *TableProcessor) checkData(sourceMessages []*core.Message, targetData []
 		event := each.Data.(*core.DBChangeEvent)
 		targetRecord, _ := targetPKMap[pkValue(event.GetRow(), pkColumns)]
 		item := &checkOutputItem{
-			DBName:      event.Database,
-			TableName:   event.Table,
-			ErrorType:   ErrorTypeRowDiff,
-			ExpectedRow: event.GetRow(),
-			RealRow:     targetRecord,
+			db:          event.Database,
+			table:       event.Table,
+			errorType:   ErrorTypeRowDiff,
+			expectedRow: event.GetRow(),
+			realRow:     targetRecord,
 		}
 		diffItems = append(diffItems, item)
 	}
