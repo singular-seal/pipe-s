@@ -128,7 +128,7 @@ type TableProcessor struct {
 	flushSig      chan bool
 	lastFlushTime int64
 	conn          *sql.DB
-	stopCtx       context.Context
+	stopContext   context.Context
 	logger        *log.Logger
 }
 
@@ -154,7 +154,7 @@ func NewTableProcessor(db string, table string, output *MysqlCheckOutput) (*Tabl
 		messages:      make(chan *core.Message, output.config.TableBufferSize),
 		flushSig:      make(chan bool),
 		conn:          output.conn,
-		stopCtx:       output.stopWaitContext,
+		stopContext:   output.stopWaitContext,
 		logger:        output.GetLogger(),
 	}
 	return proc, nil
@@ -168,7 +168,7 @@ func (p *TableProcessor) Run() {
 		defer ticker.Stop()
 		for {
 			select {
-			case <-p.stopCtx.Done():
+			case <-p.stopContext.Done():
 				p.logger.Info("processor exit", log.String("fullTableName", p.fullTableName))
 				return
 			case <-ticker.C:
