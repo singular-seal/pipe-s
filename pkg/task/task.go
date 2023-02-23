@@ -21,7 +21,7 @@ import (
 const (
 	// StateKey is default key in state store
 	StateKey                   = "state"
-	DefaultSaveStateIntervalMS = 10000
+	DefaultSyncStateIntervalMS = 10000
 )
 
 // Task is the runnable instance to do all ETL tasks.
@@ -39,7 +39,7 @@ type Task interface {
 type DefaultTask struct {
 	ID                  string
 	config              core.StringMap
-	saveStateIntervalMS int
+	syncStateIntervalMS int
 
 	stateStore  core.StateStore
 	pipeline    core.Pipeline
@@ -86,12 +86,12 @@ func (t *DefaultTask) configure() (err error) {
 	if t.stateStore, err = statestore.CreateStateStore(storeConfig); err != nil {
 		return
 	}
-	saveInterval, err := utils.GetIntFromConfig(storeConfig, "$.SaveIntervalMS")
+	syncInterval, err := utils.GetIntFromConfig(storeConfig, "$.SyncIntervalMS")
 
-	if err == nil && saveInterval != 0 {
-		t.saveStateIntervalMS = saveInterval
+	if err == nil && syncInterval != 0 {
+		t.syncStateIntervalMS = syncInterval
 	} else {
-		t.saveStateIntervalMS = DefaultSaveStateIntervalMS
+		t.syncStateIntervalMS = DefaultSyncStateIntervalMS
 	}
 
 	pipeConfig, err := utils.GetConfigFromConfig(t.config, "$.Pipeline")
@@ -116,9 +116,9 @@ func (t *DefaultTask) startPprof() {
 	}()
 }
 
-// saveState load state from pipeline and save to state store periodically.
-func (t *DefaultTask) saveState() {
-	ticker := time.NewTicker(time.Duration(t.saveStateIntervalMS) * time.Millisecond)
+// syncState load state from pipeline and save to state store periodically.
+func (t *DefaultTask) syncState() {
+	ticker := time.NewTicker(time.Duration(t.syncStateIntervalMS) * time.Millisecond)
 	defer ticker.Stop()
 	stop := false
 	for {
@@ -163,7 +163,7 @@ func (t *DefaultTask) start() (err error) {
 	if err = t.pipeline.Start(); err != nil {
 		return
 	}
-	go t.saveState()
+	go t.syncState()
 	return
 }
 
