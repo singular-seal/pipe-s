@@ -1,7 +1,6 @@
 package task
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
@@ -22,7 +21,7 @@ import (
 const (
 	// StateKey is default key in state store
 	StateKey                   = "state"
-	DefaultSyncStateIntervalMS = 10000
+	DefaultSaveStateIntervalMS = 10000
 )
 
 // Task is the runnable instance to do all ETL tasks.
@@ -40,24 +39,23 @@ type Task interface {
 type DefaultTask struct {
 	ID                  string
 	config              core.StringMap
-	syncStateIntervalMS int
+	saveStateIntervalMS int
 
-	stateStore      core.StateStore
-	pipeline        core.Pipeline
-	stopWaitContext context.Context
-	stopCancel      context.CancelFunc
-	stopOnce        sync.Once
+	stateStore  core.StateStore
+	pipeline    core.Pipeline
+	stopChan    chan struct{} // signal task needs to stop
+	stoppedChan chan struct{} // signal that task has stopped
+	stopOnce    sync.Once
 
 	lastError error // the last error in the executed pipeline
 	logger    *log.Logger
 }
 
 func NewTask(config core.StringMap) Task {
-	ctx, cancelFunc := context.WithCancel(context.Background())
 	return &DefaultTask{
-		config:          config,
-		stopWaitContext: ctx,
-		stopCancel:      cancelFunc,
+		config:      config,
+		stopChan:    make(chan struct{}),
+		stoppedChan: make(chan struct{}),
 	}
 }
 
@@ -88,12 +86,12 @@ func (t *DefaultTask) configure() (err error) {
 	if t.stateStore, err = statestore.CreateStateStore(storeConfig); err != nil {
 		return
 	}
-	syncInterval, err := utils.GetIntFromConfig(storeConfig, "$.SyncIntervalMS")
+	saveInterval, err := utils.GetIntFromConfig(storeConfig, "$.SaveIntervalMS")
 
-	if err == nil && syncInterval != 0 {
-		t.syncStateIntervalMS = syncInterval
+	if err == nil && saveInterval != 0 {
+		t.saveStateIntervalMS = saveInterval
 	} else {
-		t.syncStateIntervalMS = DefaultSyncStateIntervalMS
+		t.saveStateIntervalMS = DefaultSaveStateIntervalMS
 	}
 
 	pipeConfig, err := utils.GetConfigFromConfig(t.config, "$.Pipeline")
@@ -118,31 +116,38 @@ func (t *DefaultTask) startPprof() {
 	}()
 }
 
-// syncState load state from pipeline and save to state store periodically.
-func (t *DefaultTask) syncState() {
-	ticker := time.NewTicker(time.Duration(t.syncStateIntervalMS) * time.Millisecond)
+// saveState load state from pipeline and save to state store periodically.
+func (t *DefaultTask) saveState() {
+	ticker := time.NewTicker(time.Duration(t.saveStateIntervalMS) * time.Millisecond)
 	defer ticker.Stop()
-
+	stop := false
 	for {
 		select {
 		case err := <-t.pipeline.Errors():
 			t.logger.Error("stop on error", log.Error(err))
 			t.lastError = err
 			go t.Stop()
-		case <-t.stopWaitContext.Done():
-			return
+		case <-t.stopChan:
+			stop = true
 		case <-ticker.C:
-			state, done := t.pipeline.GetState()
-			if state != nil {
-				if err := t.stateStore.Save(StateKey, state); err != nil {
-					t.logger.Info("failed save state", log.Error(err))
-				}
+		}
+		state, done := t.pipeline.GetState()
+
+		if state != nil {
+			if err := t.stateStore.Save(StateKey, state); err != nil {
+				t.logger.Info("failed save state", log.Error(err))
 			}
-			if done {
-				go t.Stop()
-				<-t.stopWaitContext.Done()
-				return
-			}
+		}
+		// shutdown if pipeline finished
+		if done {
+			go t.Stop()
+			<-t.stopChan
+			stop = true
+		}
+
+		if stop {
+			close(t.stoppedChan)
+			return
 		}
 	}
 }
@@ -158,7 +163,7 @@ func (t *DefaultTask) start() (err error) {
 	if err = t.pipeline.Start(); err != nil {
 		return
 	}
-	go t.syncState()
+	go t.saveState()
 	return
 }
 
@@ -194,7 +199,7 @@ func (t *DefaultTask) Start() (err error) {
 	case <-utils.SignalQuit():
 		t.logger.Info("stopping task", log.String("reason", "sig quit"))
 		t.Stop()
-	case <-t.stopWaitContext.Done():
+	case <-t.stoppedChan:
 	}
 
 	t.logger.Info("start function exited from blocking", log.Error(t.lastError))
@@ -225,7 +230,8 @@ func (t *DefaultTask) GetID() string {
 func (t *DefaultTask) Stop() {
 	t.stopOnce.Do(func() {
 		t.pipeline.Stop()
-		t.stopCancel()
-		t.logger.Info("task stopped")
+		close(t.stopChan)
 	})
+	<-t.stoppedChan
+	t.logger.Info("task stopped")
 }
