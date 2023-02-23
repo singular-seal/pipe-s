@@ -41,11 +41,11 @@ type DefaultTask struct {
 	config              core.StringMap
 	syncStateIntervalMS int
 
-	stateStore  core.StateStore
-	pipeline    core.Pipeline
-	stopChan    chan struct{} // signal task needs to stop
-	stoppedChan chan struct{} // signal that task has stopped
-	stopOnce    sync.Once
+	stateStore core.StateStore
+	pipeline   core.Pipeline
+	stop       chan struct{} // signal task needs to stop
+	stopped    chan struct{} // signal that task has stopped
+	stopOnce   sync.Once
 
 	lastError error // the last error in the executed pipeline
 	logger    *log.Logger
@@ -53,9 +53,9 @@ type DefaultTask struct {
 
 func NewTask(config core.StringMap) Task {
 	return &DefaultTask{
-		config:      config,
-		stopChan:    make(chan struct{}),
-		stoppedChan: make(chan struct{}),
+		config:  config,
+		stop:    make(chan struct{}),
+		stopped: make(chan struct{}),
 	}
 }
 
@@ -120,34 +120,31 @@ func (t *DefaultTask) startPprof() {
 func (t *DefaultTask) syncState() {
 	ticker := time.NewTicker(time.Duration(t.syncStateIntervalMS) * time.Millisecond)
 	defer ticker.Stop()
-	stop := false
 	for {
 		select {
 		case err := <-t.pipeline.Errors():
+			// try save state before stop on error
+			if state, _ := t.pipeline.GetState(); state != nil {
+				t.stateStore.Save(StateKey, state)
+			}
 			t.logger.Error("stop on error", log.Error(err))
 			t.lastError = err
 			go t.Stop()
-		case <-t.stopChan:
-			stop = true
-		case <-ticker.C:
-		}
-		state, done := t.pipeline.GetState()
-
-		if state != nil {
-			if err := t.stateStore.Save(StateKey, state); err != nil {
-				t.logger.Info("failed save state", log.Error(err))
-			}
-		}
-		// shutdown if pipeline finished
-		if done {
-			go t.Stop()
-			<-t.stopChan
-			stop = true
-		}
-
-		if stop {
-			close(t.stoppedChan)
+		case <-t.stop:
+			// guarding goroutine by stopped channel to prevent partial state saving
+			// but in extreme situations like os crash still need StateStore.Save to be atomic.
+			close(t.stopped)
 			return
+		case <-ticker.C:
+			state, done := t.pipeline.GetState()
+			if state != nil {
+				if err := t.stateStore.Save(StateKey, state); err != nil {
+					t.logger.Info("failed save state", log.Error(err))
+				}
+			}
+			if done {
+				go t.Stop()
+			}
 		}
 	}
 }
@@ -199,7 +196,7 @@ func (t *DefaultTask) Start() (err error) {
 	case <-utils.SignalQuit():
 		t.logger.Info("stopping task", log.String("reason", "sig quit"))
 		t.Stop()
-	case <-t.stoppedChan:
+	case <-t.stopped:
 	}
 
 	t.logger.Info("start function exited from blocking", log.Error(t.lastError))
@@ -230,8 +227,8 @@ func (t *DefaultTask) GetID() string {
 func (t *DefaultTask) Stop() {
 	t.stopOnce.Do(func() {
 		t.pipeline.Stop()
-		close(t.stopChan)
+		close(t.stop)
 	})
-	<-t.stoppedChan
+	<-t.stopped
 	t.logger.Info("task stopped")
 }
