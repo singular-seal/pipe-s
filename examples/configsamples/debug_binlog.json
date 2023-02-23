@@ -1,12 +1,12 @@
 {
   "Task": {
     "ID": "debug_binlog",
-    "LogPath": ".",
+    "LogPath": "/Users/xxx/development",
     "StateStore": {
       "ID": "default",
       "Type": "file",
-      "Path": "state_store.data",
-      "SaveIntervalMS": 10000
+      "Path": "/Users/xxx/development/1.data",
+      "SyncIntervalMS": 10000
     },
     "Pipeline": {
       "ID": "debug-binlog-pipeline",

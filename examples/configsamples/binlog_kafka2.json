@@ -8,37 +8,30 @@
       "Path": "/Users/xxx/1.data",
       "SyncIntervalMS": 15000
     },
-    "Metrics": {
-      "Port": 7778
-    },
     "Pipeline": {
       "ID": "kafka-writer-pipeline",
       "Type": "DisruptorPipeline",
       "Input": {
-        "Type": "MysqlBinlogInput",
-        "Address": "192.168.18.14:3306",
-        "User": "admin",
-        "Password": "admin",
-        "ReplicationMode": "filepos"
+        "Type": "MySQLInput",
+        "Address": "localhost:3306",
+        "User": "root",
+        "Password": "root"
       },
       "Processors": [
         {
-          "Type": "MysqlDMLFilter",
-          "FullTableNamePattern": "^pipes_test_db.*"
+          "Type": "MysqlDMLToDBChangeConverter"
         },
         {
-          "Type": "DBTableNameCatcher",
+          "Type": "LogicalNameCatcher",
           "TableNamePattern": "^([a-z]+)\\d+$",
           "TableNameVariable": "LogicalTable"
-        },
-        {
-          "Type": "MysqlDMLToDBChangeConverter"
         },
         {
           "Type": "ColumnValueProcessor",
           "TableNameVariable": "LogicalTable",
           "TableColumnMappings": {
-            "sbtest": "id"
+            "order_tab": "order_id",
+            "account_tab": "account_id"
           },
           "OutputVariable": "PartitionKey"
         },
@@ -47,7 +40,8 @@
           "InputVariable": "LogicalTable",
           "OutputVariable": "TopicName",
           "Mappings": {
-            "sbtest": "test"
+            "order_tab": "order_topic",
+            "account_tab": "account_topic"
           }
         },
         {
@@ -58,9 +52,9 @@
         "KeyVariable": "PartitionKey",
         "TopicVariable": "TopicName",
         "ServerAddresses": [
-          "192.168.18.14:9092"
+          "1.1.1.3:1111",
+          "2.2.2.4:2222"
         ],
-        "FlushBatch": 100,
         "Type": "KafkaOutput"
       }
     }

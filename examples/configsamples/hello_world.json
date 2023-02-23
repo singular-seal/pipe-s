@@ -1,16 +1,37 @@
 {
   "Task": {
     "ID": "HelloWorld",
-    "LogPath": "/Users/abc",
+    "LogPath": "/Users/xxx/development",
     "StateStore": {
       "ID": "default",
-      "Type": "file",
-      "Path": "/Users/abc/1.data",
-      "SaveIntervalMS": 1000
+      "Type": "zookeeper",
+      "SyncIntervalMS": 10000,
+      "RootPath": "/pipes/tasks/HelloWorld/states",
+      "Addresses": [
+        "192.168.18.14:2181"
+      ]
     },
     "Pipeline": {
-      "ID": "p1",
-      "Type": "SimpleDisruptorPipeline"
+      "ID": "hello-world-pipeline",
+      "Type": "DisruptorPipeline",
+      "Input": {
+        "Type": "MysqlBinlogInput",
+        "Address": "192.168.18.14:3306",
+        "User": "admin",
+        "Password": "admin",
+        "ReplicationMode": "filepos"
+      },
+      "Processors": [
+        {
+          "Type": "MysqlDMLToDBChangeConverter"
+        },
+        {
+          "Type": "JsonMarshaller"
+        }
+      ],
+      "Output": {
+        "Type": "DummyOutput"
+      }
     }
   }
 }

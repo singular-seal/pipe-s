@@ -1,23 +1,24 @@
 {
   "Task": {
-    "ID": "MysqlScan",
-    "LogPath": "/Users/xxx/development",
+    "ID": "MysqlCheck",
+    "LogPath": "/Users/xxx",
     "StateStore": {
       "ID": "default",
       "Type": "file",
-      "Path": "/Users/xxx/development/1.data",
-      "SyncIntervalMS": 100
+      "Path": "/Users/xxx/1.data",
+      "SyncIntervalMS": 10000
     },
     "Pipeline": {
       "ID": "hello-world-pipeline",
       "Type": "DisruptorPipeline",
+      "BufferSize": 262144,
       "Input": {
         "Type": "MysqlScanInput",
         "Host": "192.168.18.14",
         "Port": 3306,
         "User": "admin",
         "Password": "admin",
-        "TableNameRegex":"^test_src_db.*"
+        "TableNameRegex":"^pipes_test_db.*"
       },
       "Processors": [
         {
@@ -25,14 +26,13 @@
         },
         {
           "Type": "DBChangeMappingProcessor",
-          "TableNamePattern": "^([a-z]+)\\d+$",
           "Mappings": [
             {
               "Source": {
-                "DB": "test_src_db"
+                "DB": "pipes_test_db"
               },
               "Target": {
-                "DB": "test_dest_db"
+                "DB": "pipes_test_db"
               }
             }
           ]

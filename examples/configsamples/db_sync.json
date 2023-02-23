@@ -6,7 +6,11 @@
       "ID": "default",
       "Type": "file",
       "Path": "/Users/xxx/development/1.data",
-      "SaveIntervalMS": 10000
+      "SyncIntervalMS": 10000
+    },
+    "PProfPort": 7777,
+    "Metrics": {
+      "Port": 7778
     },
     "Pipeline": {
       "ID": "hello-world-pipeline",
@@ -25,11 +29,18 @@
           "FullTableNamePattern": "^test_db.*"
         },
         {
+          "Type": "LogicalNameCatcher",
+          "DBNamePattern": ".*",
+          "DBNameVariable": "logicalDB",
+          "TableNamePattern": "^([a-z]+)\\d+$",
+          "TableNameVariable": "logicalTable"
+        },
+        {
           "Type": "MysqlDMLToDBChangeConverter"
         },
         {
           "Type": "DBChangeMappingProcessor",
-          "TableNamePattern": "^([a-z]+)\\d+$",
+          "DBNameVariable": "logicalDB",
           "Mappings": [
             {
               "Source": {
@@ -45,12 +56,12 @@
       "Output": {
         "Type": "MysqlBatchOutput",
         "Host": "192.168.18.14",
-        "Port": 3306,
-        "User": "admin",
-        "Password": "admin",
-        "TableConcurrency": 4,
+        "Port": 3307,
+        "User": "root",
+        "Password": "root",
+        "TableConcurrency": 1,
         "FlushIntervalMS": 1000,
-        "FlushBatchSize": 5000
+        "FlushBatchSize": 1000
       }
     }
   }
