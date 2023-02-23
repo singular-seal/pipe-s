@@ -26,7 +26,7 @@ type KafkaOutput struct {
 	client          sarama.Client
 	producer        sarama.AsyncProducer
 	heartbeatTicker *time.Ticker
-	stopWaitContext context.Context
+	stopCtx         context.Context
 	stopCancel      context.CancelFunc
 }
 
@@ -50,7 +50,7 @@ func NewKafkaOutput() *KafkaOutput {
 }
 
 func (o *KafkaOutput) Start() (err error) {
-	o.stopWaitContext, o.stopCancel = context.WithCancel(context.Background())
+	o.stopCtx, o.stopCancel = context.WithCancel(context.Background())
 	if o.client, err = sarama.NewClient(o.config.ServerAddresses, o.saramaConfig); err != nil {
 		return
 	}
@@ -228,7 +228,7 @@ func (o *KafkaOutput) handleAck() {
 				o.GetInput().Ack(orgMsg, prodErr)
 				return
 			}
-		case <-o.stopWaitContext.Done():
+		case <-o.stopCtx.Done():
 			return
 		}
 	}
@@ -242,7 +242,7 @@ func (o *KafkaOutput) sendHeartbeat() {
 			if err := o.checkBrokers(); err != nil {
 				o.GetLogger().Warn("fail check brokers", log.Error(err))
 			}
-		case <-o.stopWaitContext.Done():
+		case <-o.stopCtx.Done():
 			return
 		}
 	}

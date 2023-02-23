@@ -13,12 +13,12 @@ import (
 const DefaultDNSCheckInterval = 5000 // milliseconds
 
 type DNSTracker struct {
-	host            string
-	ipList          []string
-	changeCallback  func()
-	stopWaitContext context.Context
-	stopCancel      context.CancelFunc
-	logger          *log.Logger
+	host           string
+	ipList         []string
+	changeCallback func()
+	stopCtx        context.Context
+	stopCancel     context.CancelFunc
+	logger         *log.Logger
 }
 
 func NewDNSTracker(host string, logger *log.Logger, changeCallback func()) *DNSTracker {
@@ -31,7 +31,7 @@ func NewDNSTracker(host string, logger *log.Logger, changeCallback func()) *DNST
 }
 
 func (t *DNSTracker) Start() {
-	t.stopWaitContext, t.stopCancel = context.WithCancel(context.Background())
+	t.stopCtx, t.stopCancel = context.WithCancel(context.Background())
 	t.logger.Info("DNSTracker starting")
 
 	ipList, err := t.resolveHost()
@@ -49,7 +49,7 @@ func (t *DNSTracker) run() {
 	defer ticker.Stop()
 	for {
 		select {
-		case <-t.stopWaitContext.Done():
+		case <-t.stopCtx.Done():
 			return
 		case <-ticker.C:
 			if t.detectDNSChange() {

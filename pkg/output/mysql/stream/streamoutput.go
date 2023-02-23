@@ -26,10 +26,10 @@ type MysqlStreamOutput struct {
 	schemaStore schema.SchemaStore // schema store of the target db
 	conn        *sql.DB
 
-	taskQueues      []chan *task // messages will be dispatched into different task queues for concurrent processing
-	stopWaitContext context.Context
-	stopCancel      context.CancelFunc
-	stopWait        *sync.WaitGroup
+	taskQueues []chan *task // messages will be dispatched into different task queues for concurrent processing
+	stopCtx    context.Context
+	stopCancel context.CancelFunc
+	stopWait   *sync.WaitGroup
 }
 
 type MysqlStreamOutputConfig struct {
@@ -64,7 +64,7 @@ func (o *MysqlStreamOutput) Start() (err error) {
 	o.schemaStore = schema.NewSimpleSchemaStoreWithClient(o.conn)
 	o.schemaStore.SetLogger(o.GetLogger())
 
-	o.stopWaitContext, o.stopCancel = context.WithCancel(context.Background())
+	o.stopCtx, o.stopCancel = context.WithCancel(context.Background())
 	o.stopWait = &sync.WaitGroup{}
 
 	o.taskQueues = make([]chan *task, o.config.Concurrency)
@@ -109,7 +109,7 @@ func (o *MysqlStreamOutput) Configure(config core.StringMap) (err error) {
 func (o *MysqlStreamOutput) processTaskQueue(index int) {
 	for {
 		select {
-		case <-o.stopWaitContext.Done():
+		case <-o.stopCtx.Done():
 			o.stopWait.Done()
 			return
 		case t := <-o.taskQueues[index]:
@@ -194,7 +194,7 @@ func (o *MysqlStreamOutput) checkProgress() {
 				o.GetLogger().Info("MysqlStreamOutput task queue", log.Int("No.", i),
 					log.Int("length", len(queue)))
 			}
-		case <-o.stopWaitContext.Done():
+		case <-o.stopCtx.Done():
 			return
 		}
 	}

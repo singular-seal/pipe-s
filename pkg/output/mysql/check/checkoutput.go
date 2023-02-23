@@ -62,8 +62,8 @@ type MysqlCheckOutput struct {
 	resultLock sync.Mutex
 	resultFile *os.File
 
-	stopWaitContext context.Context
-	stopCancel      context.CancelFunc
+	stopCtx    context.Context
+	stopCancel context.CancelFunc
 }
 
 func NewMysqlCheckOutput() *MysqlCheckOutput {
@@ -72,7 +72,7 @@ func NewMysqlCheckOutput() *MysqlCheckOutput {
 	output := &MysqlCheckOutput{
 		BaseOutput:      core.NewBaseOutput(),
 		tableProcessors: make(map[string]*TableProcessor),
-		stopWaitContext: ctx,
+		stopCtx:         ctx,
 		stopCancel:      cancelFunc,
 	}
 	return output
@@ -154,7 +154,7 @@ func NewTableProcessor(db string, table string, output *MysqlCheckOutput) (*Tabl
 		messages:      make(chan *core.Message, output.config.TableBufferSize),
 		flushSig:      make(chan bool),
 		conn:          output.conn,
-		stopContext:   output.stopWaitContext,
+		stopContext:   output.stopCtx,
 		logger:        output.GetLogger(),
 	}
 	return proc, nil

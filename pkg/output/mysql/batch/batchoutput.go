@@ -28,8 +28,8 @@ type MysqlBatchOutput struct {
 	conn            *sql.DB
 	schemaStore     schema.SchemaStore // the schema store to load table schemas
 
-	stopWaitContext context.Context
-	stopCancel      context.CancelFunc
+	stopCtx    context.Context
+	stopCancel context.CancelFunc
 }
 
 type MysqlBatchOutputConfig struct {
@@ -56,7 +56,7 @@ func NewMysqlBatchOutput() *MysqlBatchOutput {
 	output := &MysqlBatchOutput{
 		BaseOutput:      core.NewBaseOutput(),
 		tableProcessors: make(map[string][]*TableProcessor),
-		stopWaitContext: ctx,
+		stopCtx:         ctx,
 		stopCancel:      cancelFunc,
 	}
 	return output

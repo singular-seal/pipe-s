@@ -43,7 +43,7 @@ type MysqlScanInput struct {
 	lastMsgSequences *sync.Map
 	tableScanners    []*TableScanner // table scanners in this stream
 	currentSequence  uint64
-	stopWaitContext  context.Context
+	stopCtx          context.Context
 	stopCancel       context.CancelFunc
 	lastAckError     atomic.Value // the last acknowledged error received
 }
@@ -84,7 +84,7 @@ func (scanner *TableScanner) start() error {
 					scanner.input.RaiseError(err)
 					return
 				}
-			case <-scanner.input.stopWaitContext.Done():
+			case <-scanner.input.stopCtx.Done():
 				scanner.logger.Info("table scan stopped", log.Int("id", scanner.id))
 				return
 			}
@@ -102,7 +102,7 @@ func NewMysqlScanInput() *MysqlScanInput {
 		tableScanners:    make([]*TableScanner, 0),
 		scanState:        &sync.Map{},
 		lastMsgSequences: &sync.Map{},
-		stopWaitContext:  ctx,
+		stopCtx:          ctx,
 		stopCancel:       function,
 	}
 }
