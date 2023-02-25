@@ -22,9 +22,8 @@ const (
 
 // CreateMysqlConnection creates a new instance of mysql connection
 func CreateMysqlConnection(host string, port uint16, user string, password string) (db1 *sql.DB, err error) {
-	dsnTO := "&timeout=%vms&readTimeout=%vms&writeTimeout=%vms"
+	dsnTO := "&timeout=%dms&readTimeout=%dms&writeTimeout=%dms"
 	dsnTO = fmt.Sprintf(dsnTO, DefaultMysqlConnectionTimeout, DefaultMysqlReadTimeout, DefaultMysqlWriteTimeout)
-
 	dsn := "%s:%s@tcp(%s:%d)/?interpolateParams=true&parseTime=true&multiStatements=true&collation=utf8mb4_general_ci%s"
 	dsn = fmt.Sprintf(dsn, user, password, host, port, dsnTO)
 
@@ -149,33 +148,33 @@ func ExtractFromDDL(schema []byte, stmt ast.StmtNode) []*DDLInfo {
 
 func genKeyValueSqlAndArgs(columns map[string]interface{}, separator string) (string, []interface{}) {
 	args := make([]interface{}, 0)
-	conditions := make([]string, 0)
+	eqs := make([]string, 0)
 	for k, v := range columns {
 		args = append(args, v)
-		conditions = append(conditions, fmt.Sprintf("%s=?", k))
+		eqs = append(eqs, fmt.Sprintf("%s=?", k))
 	}
-	return strings.Join(conditions, separator), args
+	return strings.Join(eqs, separator), args
 }
 
 func genKeyValueSqlAndArgsExclude(columns map[string]interface{}, exclude map[string]interface{},
 	separator string) (string, []interface{}) {
 	args := make([]interface{}, 0)
-	conditions := make([]string, 0)
+	eqs := make([]string, 0)
 	for k, v := range columns {
 		if _, ok := exclude[k]; ok {
 			continue
 		}
 		if v == nil {
-			conditions = append(conditions, fmt.Sprintf("%s=default(%s)", k, k))
+			eqs = append(eqs, fmt.Sprintf("%s=default(%s)", k, k))
 		} else {
 			args = append(args, v)
-			conditions = append(conditions, fmt.Sprintf("%s=?", k))
+			eqs = append(eqs, fmt.Sprintf("%s=?", k))
 		}
 	}
-	return strings.Join(conditions, separator), args
+	return strings.Join(eqs, separator), args
 }
 
-func genColumnsStringAndArgs(columns map[string]interface{}) (string, string, []interface{}) {
+func genColumnsAndArgs(columns map[string]interface{}) (string, string, []interface{}) {
 	args := make([]interface{}, 0)
 	cols := make([]string, 0)
 	marks := make([]string, 0)
@@ -198,7 +197,7 @@ func getKeys(eventData map[string]interface{}, keyColumns []string) map[string]i
 func GenerateSqlAndArgs(event *core.DBChangeEvent, keyColumns []string) (sqlString string, sqlArgs []interface{}) {
 	switch event.Operation {
 	case core.DBInsert:
-		colString, markString, args := genColumnsStringAndArgs(event.NewRow)
+		colString, markString, args := genColumnsAndArgs(event.NewRow)
 		sqlString = fmt.Sprintf("INSERT IGNORE INTO %s.%s (%s) VALUES (%s)", event.Database,
 			event.Table, colString, markString)
 		sqlArgs = args
@@ -249,19 +248,18 @@ func ScanRowsWithDataPointers(rows *sql.Rows, columnTypes []*sql.ColumnType, vPt
 func getScanPointer(columnIdx int, columnTypes []*sql.ColumnType, vPtrs []interface{}) (interface{}, error) {
 	scanType := ScanType(columnTypes[columnIdx])
 	if scanType.String() == "sql.RawBytes" {
-		data := reflect.ValueOf(vPtrs[columnIdx]).Elem().Interface()
-		dataRawBytes, ok := data.(sql.RawBytes)
+		obj := reflect.ValueOf(vPtrs[columnIdx]).Elem().Interface()
+		objBytes, ok := obj.(sql.RawBytes)
 		if !ok {
 			return nil, errors.Errorf("failed convert sql.RawBytes")
 		}
 		var b sql.RawBytes
-		if dataRawBytes != nil {
-			b = make(sql.RawBytes, len(dataRawBytes))
-			copy(b, dataRawBytes)
+		if objBytes != nil {
+			b = make(sql.RawBytes, len(objBytes))
+			copy(b, objBytes)
 		}
 		return &b, nil
 	}
-
 	return vPtrs[columnIdx], nil
 }
 

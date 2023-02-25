@@ -14,7 +14,7 @@ const (
 )
 
 const (
-	MetaUndefined int = iota
+	MetaOther int = iota
 	CustomVariable
 	MetaMySqlPos
 	MetaMySqlScanPos
