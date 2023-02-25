@@ -286,14 +286,14 @@ func isFloatColumn(columnType *sql.ColumnType) bool {
 }
 
 func LoadColumnTypes(db string, table string, cols []string, conn *sql.DB) ([]*sql.ColumnType, error) {
-	var colStat string
+	var colStr string
 	if len(cols) == 0 {
-		colStat = "*"
+		colStr = "*"
 	} else {
-		colStat = strings.Join(cols, ",")
+		colStr = strings.Join(cols, ",")
 	}
 
-	stat := fmt.Sprintf("SELECT %s FROM %s.%s LIMIT 1", colStat, db, table)
+	stat := fmt.Sprintf("SELECT %s FROM %s.%s LIMIT 1", colStr, db, table)
 	rows, err := conn.Query(stat)
 	if err != nil {
 		return nil, err
