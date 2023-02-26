@@ -420,18 +420,18 @@ func (scanner *TableScanner) genScanSqlAndArgs(
 	prefix := fmt.Sprintf("SELECT * FROM %s.%s WHERE ", table.DBName, table.TableName)
 
 	var args []interface{}
-	var whereString string
+	var whereStr string
 	if len(minValue) == 0 {
-		whereString = "1=1"
+		whereStr = "1=1"
 	} else {
 		colStr := fmt.Sprintf("(%s)", strings.Join(scanColumns, ","))
 		quoteStr := fmt.Sprintf("(%s)", strings.Join(strings.Split(strings.Repeat("?", len(scanColumns)), ""), ","))
-		whereString = fmt.Sprintf("%s>=%s", colStr, quoteStr)
+		whereStr = fmt.Sprintf("%s>=%s", colStr, quoteStr)
 		args = append(args, minValue...)
 	}
 
-	orderByString := strings.Join(scanColumns, ", ")
-	query := fmt.Sprintf("%s%s ORDER BY %s LIMIT ?", prefix, whereString, orderByString)
+	orderByStr := strings.Join(scanColumns, ", ")
+	query := fmt.Sprintf("%s%s ORDER BY %s LIMIT ?", prefix, whereStr, orderByStr)
 	args = append(args, batch)
 	return query, args
 }
