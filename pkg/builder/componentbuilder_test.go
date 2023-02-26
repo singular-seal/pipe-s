@@ -36,8 +36,14 @@ func TestDefaultComponentBuilder_CreatePipeline(t *testing.T) {
 	ic["Type"] = "NonExistInput"
 	_, err = core.GetComponentBuilderInstance().CreatePipeline(conf)
 	r.NotNil(err, "Should not create unregistered input.")
-
 	ic["Type"] = "KafkaInput"
+
+	oc := conf["Output"].(core.StringMap)
+	oc["Type"] = "NonExistOutput"
+	_, err = core.GetComponentBuilderInstance().CreatePipeline(conf)
+	r.NotNil(err, "Should not create unregistered output.")
+	oc["Type"] = "DummyOutput"
+
 	delete(conf, "Processors")
 	_, err = core.GetComponentBuilderInstance().CreatePipeline(conf)
 	r.NotNil(err, "Should not create without Processors config.")
