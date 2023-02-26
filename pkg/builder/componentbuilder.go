@@ -223,7 +223,7 @@ func InitComponentBuilder(logger *log.Logger) {
 		return filter.NewMysqlDMLFilter()
 	})
 	dc.RegisterComponent("DBTableNameCatcher", func() core.Component {
-		return value.NewLogicalNameCatcher()
+		return value.NewDBTableNameCatcher()
 	})
 	dc.RegisterComponent("ColumnValueProcessor", func() core.Component {
 		return value.NewColumnValueProcessor()

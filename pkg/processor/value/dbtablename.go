@@ -26,7 +26,7 @@ type DBTableNameCatcher struct {
 	tableNamePattern *regexp.Regexp
 }
 
-func NewLogicalNameCatcher() *DBTableNameCatcher {
+func NewDBTableNameCatcher() *DBTableNameCatcher {
 	return &DBTableNameCatcher{
 		BaseComponent: core.NewBaseComponent(),
 	}
