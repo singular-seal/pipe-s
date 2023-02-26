@@ -123,11 +123,11 @@ func configureActionMapping(tableInfo *TableInfo, sourceTableMap core.StringMap,
 	tableInfo.actionMapping = map[string]string{}
 	for k, each := range sourceActions {
 		sourceAction, ok := each.(string)
-		if ok {
+		if !ok {
 			return errors.Errorf("source action is not string")
 		}
 		targetAction, ok := targetActions[k].(string)
-		if ok {
+		if !ok {
 			return errors.Errorf("target action is not string")
 		}
 		tableInfo.actionMapping[sourceAction] = targetAction
