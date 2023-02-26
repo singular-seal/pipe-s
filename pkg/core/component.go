@@ -27,7 +27,7 @@ type Input interface {
 	SetOutput(output Output)
 	Ack(msg *Message, err error)
 	SetState(state []byte) error
-	GetState() ([]byte, bool)
+	GetState() (state []byte, done bool)
 }
 
 type Output interface {

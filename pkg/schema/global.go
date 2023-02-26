@@ -75,8 +75,6 @@ func fillTypeInfo(column *core.Column) {
 	unsigned := strings.Contains(strings.ToLower(rawType), "unsigned")
 
 	switch typeString {
-	case "date", "enum", "set", "json":
-		column.Type = ColumnNameTypeMapping[typeString]
 	case "tinyint", "smallint", "mediumint", "int", "bigint", "float", "double":
 		column.Type = ColumnNameTypeMapping[typeString]
 		column.IsUnsigned = unsigned
@@ -84,6 +82,8 @@ func fillTypeInfo(column *core.Column) {
 		"tinyblob", "mediumblob", "longblob", "tinytext", "mediumtext", "longtext":
 		column.Type = ColumnNameTypeMapping[typeString]
 		column.Length = getWidth(arg1)
+	case "date", "enum", "set", "json":
+		column.Type = ColumnNameTypeMapping[typeString]
 	case "decimal":
 		column.Type = ColumnNameTypeMapping[typeString]
 		column.Length = getWidth(arg1)

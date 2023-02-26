@@ -502,7 +502,7 @@ func (c *EventConsumer) handleQueryEvent(pos *core.MysqlBinlogPosition, e *repli
 	return c.handleTxCommit()
 }
 
-func (c *EventConsumer) newDMLMessage(pos *core.MysqlBinlogPosition, rowIndex int, e *replication.BinlogEvent,
+func (c *EventConsumer) newDMLMessage(pos *core.MysqlBinlogPosition, rowIndex int, be *replication.BinlogEvent,
 	createTime uint64, table string, op string, ts *core.Table) *core.Message {
 
 	pos.TransactionOffset = c.transactionOffset
@@ -512,16 +512,16 @@ func (c *EventConsumer) newDMLMessage(pos *core.MysqlBinlogPosition, rowIndex in
 	m.Header.ID = c.input.genEventID(pos, pos.TransactionOffset, pos.RowOffset)
 	m.Header.CreateTime = createTime
 
-	mysqlEvent := &core.MysqlDMLEvent{
+	dml := &core.MysqlDMLEvent{
 		Pos:           pos.SimpleCopy(),
-		BinlogEvent:   e,
+		BinlogEvent:   be,
 		FullTableName: table,
 		Operation:     op,
 	}
 
-	m.SetMeta(core.MetaMySqlPos, mysqlEvent.Pos)
+	m.SetMeta(core.MetaMySqlPos, dml.Pos)
 	m.SetMeta(core.MetaTableSchema, ts)
-	m.Data = mysqlEvent
+	m.Data = dml
 	return m
 }
 
@@ -555,27 +555,31 @@ func (in *MysqlBinlogInput) getLastAck() (msg *core.Message, err error) {
 	return
 }
 
-func (in *MysqlBinlogInput) GetState() ([]byte, bool) {
+func (in *MysqlBinlogInput) GetState() (state []byte, done bool) {
 	m, lastErr := in.getLastAck()
 	if m == nil {
-		return nil, false
+		return
 	}
 	obj, ok := m.GetMeta(core.MetaMySqlPos)
 	if !ok || obj == nil {
 		in.GetLogger().Error("position not found in meta", log.String("message_id", m.Header.ID))
-		return nil, true
+		done = true
+		return
 	}
 	pos := obj.(*core.MysqlBinlogPosition)
-	state, err := core.MarshalMysqlBinlogPosition(pos)
+	var err error
+	state, err = core.MarshalMysqlBinlogPosition(pos)
 	if err != nil {
 		in.GetLogger().Error("pos marshal error", log.Any("pos", pos), log.Error(err))
-		return nil, true
+		done = true
+		return
 	}
 	if lastErr != nil {
 		in.GetLogger().Error("ack error received", log.Any("pos", pos), log.Error(lastErr))
-		return nil, true
+		done = true
+		return
 	} else {
-		return state, false
+		return
 	}
 }
 
