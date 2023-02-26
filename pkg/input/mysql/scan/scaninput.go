@@ -353,7 +353,7 @@ func (scanner *TableScanner) scanTable(table *core.Table) (err error) {
 
 	for {
 		// scan table, it scans BatchSize+1 records in which the last record helps use to locate the start of next batch and the last batch
-		stat, args := scanner.generateScanSqlAndArgs(table, table.PKColumnNames(), minValue, scanner.batchSize+1)
+		stat, args := scanner.genScanSqlAndArgs(table, table.PKColumnNames(), minValue, scanner.batchSize+1)
 
 		var rows *sql.Rows
 		if rows, err = scanner.input.dbConnection.Query(stat, args...); err != nil {
@@ -411,7 +411,7 @@ func getPKValue(row []interface{}, table *core.Table) []interface{} {
 	return r
 }
 
-func (scanner *TableScanner) generateScanSqlAndArgs(
+func (scanner *TableScanner) genScanSqlAndArgs(
 	table *core.Table,
 	scanColumns []string,
 	minValue []interface{},
