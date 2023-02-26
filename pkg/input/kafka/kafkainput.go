@@ -162,7 +162,8 @@ func (mc *MessageConsumer) ConsumeClaim(session sarama.ConsumerGroupSession, cla
 		}
 		m.SetMeta(core.MetaKafkaConsumerPosition, pos)
 		m.SetMeta(core.MetaKafkaConsumerSession, session)
-
+		// multiple goroutines can be used to consume, so a lock is required. Should let go disruptor support
+		// multiple producer mode in the future.
 		mc.input.sendLock.Lock()
 		mc.input.GetOutput().Process(m)
 		mc.input.sendLock.Unlock()

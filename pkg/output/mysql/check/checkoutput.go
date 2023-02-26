@@ -128,7 +128,7 @@ type TableProcessor struct {
 	flushSig      chan bool
 	lastFlushTime int64
 	conn          *sql.DB
-	stopContext   context.Context
+	stopCtx       context.Context
 	logger        *log.Logger
 }
 
@@ -154,7 +154,7 @@ func NewTableProcessor(db string, table string, output *MysqlCheckOutput) (*Tabl
 		messages:      make(chan *core.Message, output.config.TableBufferSize),
 		flushSig:      make(chan bool),
 		conn:          output.conn,
-		stopContext:   output.stopCtx,
+		stopCtx:       output.stopCtx,
 		logger:        output.GetLogger(),
 	}
 	return proc, nil
@@ -168,7 +168,7 @@ func (p *TableProcessor) Run() {
 		defer ticker.Stop()
 		for {
 			select {
-			case <-p.stopContext.Done():
+			case <-p.stopCtx.Done():
 				p.logger.Info("processor exit", log.String("fullTableName", p.fullTableName))
 				return
 			case <-ticker.C:
@@ -203,7 +203,7 @@ func (p *TableProcessor) Flush() {
 func (p *TableProcessor) check(messages []*core.Message) error {
 	selCols := messages[0].Data.(*core.DBChangeEvent).GetColumns()
 	pkCols := p.tableSchema.PKColumnNames()
-	sqlString, args := generateSelectSqlAndArgs(p.tableSchema.DBName, p.tableSchema.TableName, selCols, pkCols, getPKValues(pkCols, messages))
+	sqlString, args := genSelectSqlAndArgs(p.tableSchema.DBName, p.tableSchema.TableName, selCols, pkCols, getPKValues(pkCols, messages))
 	target, err := p.executeSelect(sqlString, args, selCols)
 	if err != nil {
 		return err
@@ -357,7 +357,7 @@ func (p *TableProcessor) recheckMissingRecords(messages []*core.Message) ([]*cor
 	}
 	srcPK := srcTable.PKColumnNames()
 	// try to filter the records deleted from source db recently
-	sqlString, args := generateSelectSqlAndArgs(srcTable.DBName, srcTable.TableName, srcPK, srcPK, getPKValues(destPK, messages))
+	sqlString, args := genSelectSqlAndArgs(srcTable.DBName, srcTable.TableName, srcPK, srcPK, getPKValues(destPK, messages))
 	data, err := p.executeSelect(sqlString, args, srcPK)
 	if err != nil {
 		return nil, err
@@ -388,7 +388,7 @@ func (p *TableProcessor) recheckDifferentRecords(messages []*core.Message) ([]*c
 	}
 	srcPK := srcTable.PKColumnNames()
 	// try to filter the records deleted from source db recently
-	sqlString, args := generateSelectSqlAndArgs(srcTable.DBName, srcTable.TableName, srcPK, srcPK, getPKValues(destPK, messages))
+	sqlString, args := genSelectSqlAndArgs(srcTable.DBName, srcTable.TableName, srcPK, srcPK, getPKValues(destPK, messages))
 	w, arg := p.whereConditionForUpdateTime()
 	sqlString = fmt.Sprintf("%s AND %s", sqlString, w)
 	args = append(args, arg)
@@ -483,7 +483,7 @@ func (p *TableProcessor) executeSelect(sqlString string, args []interface{}, sel
 	return result, nil
 }
 
-func generateSelectSqlAndArgs(db string, table string, selCols []string, pkCols []string, pkValues [][]interface{}) (string, []interface{}) {
+func genSelectSqlAndArgs(db string, table string, selCols []string, pkCols []string, pkValues [][]interface{}) (string, []interface{}) {
 	sqlPrefix := fmt.Sprintf("SELECT %s FROM %s.%s WHERE (%s) IN", strings.Join(selCols, ","), db, table,
 		strings.Join(pkCols, ","))
 
