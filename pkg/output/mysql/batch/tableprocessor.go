@@ -33,7 +33,7 @@ type TableProcessor struct {
 	flushChan     chan *BatchMessage
 	conn          *sql.DB
 	flushWait     *sync.WaitGroup // concurrency control for insert, update and delete in the same batch
-	stopContext   context.Context
+	stopCtx       context.Context
 	logger        *log.Logger
 }
 
@@ -46,7 +46,7 @@ func NewTableProcessor(output *MysqlBatchOutput, index int) *TableProcessor {
 		flushChan:       make(chan *BatchMessage, DefaultFlushChanSize),
 		conn:            output.conn,
 		flushWait:       &sync.WaitGroup{},
-		stopContext:     output.stopCtx,
+		stopCtx:         output.stopCtx,
 		logger:          output.GetLogger(),
 	}
 	return proc
@@ -57,7 +57,7 @@ func (p *TableProcessor) Run() {
 	go func() {
 		for {
 			select {
-			case <-p.stopContext.Done():
+			case <-p.stopCtx.Done():
 				p.logger.Info("flush goroutine exited")
 				return
 			case batch := <-p.flushChan:
@@ -72,7 +72,7 @@ func (p *TableProcessor) Run() {
 		defer ticker.Stop()
 		for {
 			select {
-			case <-p.stopContext.Done():
+			case <-p.stopCtx.Done():
 				p.logger.Info("message processing goroutine exited")
 				return
 			case <-ticker.C:
