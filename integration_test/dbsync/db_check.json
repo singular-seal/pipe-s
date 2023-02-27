@@ -23,20 +23,6 @@
       "Processors": [
         {
           "Type": "MysqlDMLToDBChangeConverter"
-        },
-        {
-          "Type": "DBChangeMappingProcessor",
-          "TableNamePattern": "^([a-z]+)\\d+$",
-          "Mappings": [
-            {
-              "Source": {
-                "DB": "pipes_test_db"
-              },
-              "Target": {
-                "DB": "pipes_test_db"
-              }
-            }
-          ]
         }
       ],
       "Output": {
