@@ -123,14 +123,14 @@ func (t *DefaultTask) syncState() {
 	for {
 		select {
 		case err := <-t.pipeline.Errors():
-			// try save state before stop on error
-			if state, _ := t.pipeline.GetState(); state != nil {
-				t.stateStore.Save(StateKey, state)
-			}
 			t.logger.Error("stop on error", log.Error(err))
 			t.lastError = err
 			go t.Stop()
 		case <-t.stop:
+			// try save state before stop
+			if state, _ := t.pipeline.GetState(); state != nil {
+				t.stateStore.Save(StateKey, state)
+			}
 			// guarding goroutine by stopped channel to prevent partial state saving
 			// but in extreme situations like os crash still need StateStore.Save to be atomic.
 			close(t.stopped)
