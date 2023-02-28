@@ -87,6 +87,7 @@ function wait_for_sync_finished() {
 }
 
 function kill_sync_process() {
+  # kill -9 to mock unexpected incident
   ps -ef | grep "$WORK_DIR/$DB_SYNC_CONFIG" | grep -v grep | awk '{print $2}' | xargs kill -9
 }
 
