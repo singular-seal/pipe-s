@@ -135,7 +135,7 @@ function test_once() {
   echo "finish one run"
 }
 
-while getopts 'i:c:e' OPT; do
+while getopts 'ic:e' OPT; do
   case $OPT in
   i) init_binlog ;;
   c) RUNNING_COUNT="$OPTARG" ;;
@@ -144,7 +144,6 @@ while getopts 'i:c:e' OPT; do
 done
 
 rm "$DB_CHECK_RESULT_FILE"
-
 run_number=1
 while [ "$RUNNING_COUNT" -gt "0" ]; do
   echo "start running $run_number"

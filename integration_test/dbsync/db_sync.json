@@ -38,7 +38,7 @@
         "Port": 3307,
         "User": "root",
         "Password": "root",
-        "Concurrency":8,
+        "Concurrency":16,
         "RoutingBy": "PrimaryKey"
       }
     }
