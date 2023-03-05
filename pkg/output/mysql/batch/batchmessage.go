@@ -59,12 +59,14 @@ func (bm *BatchMessage) add(info *MessageInfo) (err error) {
 // mergeInsert for delete-insert sequence
 func mergeInsert(oldEvent *MergedMessage, newEvent *MessageInfo) {
 	// not in db before, so we can just use make a entire new event
+	// like insert->*->delete->insert
 	if !oldEvent.inDB {
 		oldEvent.mergedEvent = newEvent.dbChange
 		return
 	}
 
 	// change to update
+	// like *->delete->insert
 	oldEvent.mergedEvent.Operation = core.DBUpdate
 	oldEvent.mergedEvent.NewRow = make(map[string]interface{})
 	for col := range oldEvent.mergedEvent.OldRow {
