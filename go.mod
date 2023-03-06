@@ -2,7 +2,7 @@ module github.com/singular-seal/pipe-s
 
 go 1.18
 
-replace github.com/go-mysql-org/go-mysql => github.com/singular-seal/go-mysql v0.1.13
+replace github.com/go-mysql-org/go-mysql => github.com/singular-seal/go-mysql v0.1.14
 
 replace github.com/smartystreets-prototypes/go-disruptor => github.com/singular-seal/go-disruptor v0.0.4
 
