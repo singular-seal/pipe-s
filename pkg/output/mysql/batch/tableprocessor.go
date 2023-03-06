@@ -154,16 +154,18 @@ func (p *TableProcessor) executeSome(messages []*MergedMessage) error {
 }
 
 func (p *TableProcessor) maybeInsertToUpdate(messages []*MergedMessage) error {
-	merged := make([]*MergedMessage, 0)
-	for _, message := range messages {
-		if len(message.originals) > 1 {
-			merged = append(merged, message)
+	ms := make([]*MergedMessage, 0)
+	for _, m := range messages {
+		if len(m.originals) > 1 {
+			m.mergedEvent.Operation = core.DBUpdate
+			m.mergedEvent.OldRow = m.mergedEvent.NewRow
+			ms = append(ms, m)
 		}
 	}
-	if len(merged) == 0 {
+	if len(ms) == 0 {
 		return nil
 	}
-	sqlStr, sqlArgs := p.generateUpdateSql(merged)
+	sqlStr, sqlArgs := p.generateUpdateSql(ms)
 	_, err := p.conn.Exec(sqlStr, sqlArgs...)
 	if err != nil {
 		p.logger.Error("failed execute sql", log.String("sql", sqlStr), log.Error(err))
