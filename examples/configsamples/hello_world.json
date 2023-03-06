@@ -1,12 +1,12 @@
 {
   "Task": {
     "ID": "HelloWorld",
-    "LogPath": "/Users/xxx/development",
+    "LogPath": ".",
     "StateStore": {
       "ID": "default",
       "Type": "zookeeper",
       "SyncIntervalMS": 10000,
-      "RootPath": "/pipes/tasks/HelloWorld/states",
+      "RootPath": "states",
       "Addresses": [
         "192.168.18.14:2181"
       ]

@@ -1,11 +1,11 @@
 {
   "Task": {
     "ID": "db_sync",
-    "LogPath": "/Users/xxx/development",
+    "LogPath": ".",
     "StateStore": {
       "ID": "default",
       "Type": "file",
-      "Path": "/Users/xxx/development/1.data",
+      "Path": "1.data",
       "SyncIntervalMS": 10000
     },
     "PProfPort": 7777,
@@ -26,31 +26,10 @@
       "Processors": [
         {
           "Type": "MysqlDMLFilter",
-          "FullTableNamePattern": "^test_db.*"
-        },
-        {
-          "Type": "LogicalNameCatcher",
-          "DBNamePattern": ".*",
-          "DBNameVariable": "logicalDB",
-          "TableNamePattern": "^([a-z]+)\\d+$",
-          "TableNameVariable": "logicalTable"
+          "FullTableNamePattern": "^pipes_test_db.*"
         },
         {
           "Type": "MysqlDMLToDBChangeConverter"
-        },
-        {
-          "Type": "DBChangeMappingProcessor",
-          "DBNameVariable": "logicalDB",
-          "Mappings": [
-            {
-              "Source": {
-                "DB": "test_db"
-              },
-              "Target": {
-                "DB": "test_dest_db"
-              }
-            }
-          ]
         }
       ],
       "Output": {
