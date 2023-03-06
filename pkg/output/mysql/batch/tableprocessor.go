@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/pkg/errors"
 	"github.com/singular-seal/pipe-s/pkg/core"
 	"github.com/singular-seal/pipe-s/pkg/log"
 	"github.com/singular-seal/pipe-s/pkg/utils"
@@ -129,21 +128,48 @@ func (p *TableProcessor) executeBatch(messages []*MergedMessage) {
 
 func (p *TableProcessor) executeSome(messages []*MergedMessage) error {
 	sqlString, sqlArgs := p.generateSql(messages)
-	if len(sqlString) == 0 {
-		return errors.Errorf("blank sql")
-	}
 	result, err := p.conn.Exec(sqlString, sqlArgs...)
 	if err != nil {
 		p.logger.Error("failed execute sql", log.String("sql", sqlString), log.Error(err))
 		return err
 	}
 	count, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
 	// this can happen in retry so just log it
+	// todo in multiple statements' scenario(multi updates), we can't know if all statements succeed because of
+	//      go mysql api restriction. In some rare cases like delete-*-insert case, we convert it to an update
+	//      but the delete may be executed but not set to state yet so update may fail, thus the delete-*-insert data
+	//      is lost and we are not able to know it!
 	if count < int64(len(messages)) && !utils.IsMultipleStatements(sqlString) {
 		p.logger.Warn("not all rows succeed", log.String("sql", sqlString),
 			log.Int64("succeed", count), log.Int("all", len(messages)))
+		if messages[0].mergedEvent.Operation == core.DBInsert {
+			return p.maybeInsertToUpdate(messages)
+		}
 	}
-	return err
+	return nil
+}
+
+func (p *TableProcessor) maybeInsertToUpdate(messages []*MergedMessage) error {
+	merged := make([]*MergedMessage, 0)
+	for _, message := range messages {
+		if len(message.originals) > 1 {
+			merged = append(merged, message)
+		}
+	}
+	if len(merged) == 0 {
+		return nil
+	}
+	sqlStr, sqlArgs := p.generateUpdateSql(merged)
+	_, err := p.conn.Exec(sqlStr, sqlArgs...)
+	if err != nil {
+		p.logger.Error("failed execute sql", log.String("sql", sqlStr), log.Error(err))
+		return err
+	}
+	return nil
 }
 
 func (p *TableProcessor) generateSql(messages []*MergedMessage) (sqlString string, sqlArgs []interface{}) {
