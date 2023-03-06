@@ -8,7 +8,7 @@ import (
 type MergedMessage struct {
 	mergedEvent *core.DBChangeEvent // the merged db change event
 	originals   []*core.Message     // originals keep tracking the original messages before merge
-	inDB        bool                // inDB indicates if the row inDB in the db
+	inDB        bool                // inDB indicates if the row inDB in the db before the MergedMessage received.
 }
 
 type BatchMessage struct {
