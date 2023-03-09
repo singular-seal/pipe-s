@@ -20,6 +20,7 @@ const (
 	MetaMySqlScanPos
 	MetaTableSchema
 	AckWaitGroup
+	MetaError
 	MetaKafkaConsumerSession
 	MetaKafkaConsumerPosition
 )

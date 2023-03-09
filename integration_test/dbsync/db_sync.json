@@ -6,7 +6,7 @@
       "ID": "default",
       "Type": "file",
       "Path": "state_store.data",
-      "SyncIntervalMS": 10000
+      "SyncIntervalMS": 100
     },
     "PProfPort": 7777,
     "Metrics": {

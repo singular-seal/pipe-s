@@ -107,6 +107,12 @@ func (c AckConsumer) Consume(lower, upper int64) {
 			continue
 		}
 		w.Wait()
+		if o, ok := event.msg.GetMeta(core.MetaError); ok {
+			c.pipeline.GetInput().Ack(event.msg, o.(error))
+		} else {
+			c.pipeline.GetInput().Ack(event.msg, nil)
+		}
+
 		c.pipeline.outQueueCount++
 	}
 }
@@ -165,10 +171,12 @@ func (p *DisruptorPipeline) StartPipeline() (err error) {
 }
 
 func (p *DisruptorPipeline) Ack(msg *core.Message, err error) {
+	if err != nil {
+		msg.SetMeta(core.MetaError, err)
+	}
 	if wg, ok := msg.GetMeta(core.AckWaitGroup); ok {
 		wg.(*sync.WaitGroup).Done()
 	}
-	p.GetInput().Ack(msg, err)
 }
 
 func (p *DisruptorPipeline) Process(msg *core.Message) {

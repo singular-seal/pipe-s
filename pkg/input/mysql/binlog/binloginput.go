@@ -528,6 +528,7 @@ func (c *EventConsumer) newDMLMessage(pos *core.MysqlBinlogPosition, rowIndex in
 func (in *MysqlBinlogInput) Ack(msg *core.Message, err error) {
 	if err != nil {
 		in.lastAckError.Store(err)
+		return
 	}
 	if msg != nil {
 		in.lastAckMsg.Store(msg)

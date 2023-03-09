@@ -144,7 +144,8 @@ func (p *TableProcessor) executeSome(messages []*MergedMessage) error {
 	//      but the delete may be executed but not set to state yet so update may fail, thus the delete-*-insert data
 	//      is lost and we are not able to know it!
 	if count < int64(len(messages)) && !utils.IsMultipleStatements(sqlString) {
-		p.logger.Warn("not all rows succeed", log.String("sql", sqlString),
+		e0 := messages[0].mergedEvent
+		p.logger.Warn("not all rows succeed", log.String("op", e0.Operation), log.String("table", e0.Table),
 			log.Int64("succeed", count), log.Int("all", len(messages)))
 		if messages[0].mergedEvent.Operation == core.DBInsert {
 			return p.maybeInsertToUpdate(messages)
