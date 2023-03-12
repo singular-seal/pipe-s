@@ -41,9 +41,9 @@ type MessageHeader struct {
 
 // Message is the basic data container which is transferred throughout the whole system.
 type Message struct {
-	Type   string
-	Header *MessageHeader
-	Data   interface{}
+	Type   string         // message type
+	Header *MessageHeader // message header
+	Data   interface{}    // message data
 }
 
 // SetMeta set system meta value.

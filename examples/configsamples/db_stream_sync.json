@@ -15,13 +15,13 @@
     "Pipeline": {
       "ID": "hello-world-pipeline",
       "Type": "DisruptorPipeline",
-      "BufferSize": 262144,
+      "Concurrency": 4,
       "Input": {
         "Type": "MysqlBinlogInput",
         "Address": "192.168.18.14:3306",
         "User": "admin",
         "Password": "admin",
-        "ReplicationMode": "filepos"
+        "ReplicationMode": "gtid"
       },
       "Processors": [
         {
@@ -38,7 +38,8 @@
         "Port": 3307,
         "User": "root",
         "Password": "root",
-        "Concurrency": 8
+        "Concurrency": 8,
+        "RoutingBy": "PrimaryKey"
       }
     }
   }

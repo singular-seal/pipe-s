@@ -2,7 +2,7 @@
 
 Pipe-s is a common ETL pipeline built on [go-disruptor](https://github.com/smarty-prototypes/go-disruptor) 
 and replicates data between various inputs and outputs such as mysql and kafka. It has similar functions
-like [gravity](https://github.com/moiot/gravity).
+like [gravity](https://github.com/moiot/gravity) and good performance and extendability.
 
 # Usage
 
@@ -30,6 +30,7 @@ to do
 ## output support
 * Mysql stream
 * Mysql batch
+* Mysql data check
 * Kafka
 * Log
 
@@ -39,6 +40,9 @@ to do
 * More flexible transformer customized by yourself.
 
 # Documents
+* [architecture](docs/arch.md)
+* [config](docs/config.md)
+* [performance](docs/performance.md)
 
 # Contacts
 Send message to [me](mailto:singular.seal@gmail.com) if you have any questions to discuss.  
