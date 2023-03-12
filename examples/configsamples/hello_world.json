@@ -4,12 +4,9 @@
     "LogPath": ".",
     "StateStore": {
       "ID": "default",
-      "Type": "zookeeper",
-      "SyncIntervalMS": 10000,
-      "RootPath": "states",
-      "Addresses": [
-        "192.168.18.14:2181"
-      ]
+      "Type": "file",
+      "Path": "1.data",
+      "SyncIntervalMS": 10000
     },
     "Pipeline": {
       "ID": "hello-world-pipeline",
@@ -30,7 +27,7 @@
         }
       ],
       "Output": {
-        "Type": "DummyOutput"
+        "Type": "LogOutput"
       }
     }
   }
