@@ -1,6 +1,9 @@
 package core
 
-import "github.com/singular-seal/pipe-s/pkg/log"
+import (
+	"github.com/singular-seal/pipe-s/pkg/log"
+	"sync/atomic"
+)
 
 // Component is an entity which has id and lifecycle and can be configured and error able.
 type Component interface {
@@ -52,6 +55,7 @@ type BaseComponent struct {
 	errorChan chan error
 }
 
+// RaiseError is used when there's no msg to ack.
 func (c *BaseComponent) RaiseError(err error) {
 	if len(c.errorChan) > 0 {
 		return
@@ -103,13 +107,26 @@ func NewBaseComponent() *BaseComponent {
 
 type BaseInput struct {
 	*BaseComponent
-	output Output
+	output       Output
+	lastAckError atomic.Value
 }
 
 func NewBaseInput() *BaseInput {
 	return &BaseInput{
 		BaseComponent: NewBaseComponent(),
 	}
+}
+
+func (in *BaseInput) GetLastAckError() error {
+	if val := in.lastAckError.Load(); val != nil {
+		return *(val.(*error))
+	} else {
+		return nil
+	}
+}
+
+func (in *BaseInput) SetLastAckError(err error) {
+	in.lastAckError.Store(&err)
 }
 
 func (in *BaseInput) SetOutput(output Output) {

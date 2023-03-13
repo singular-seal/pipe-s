@@ -45,7 +45,6 @@ type MysqlScanInput struct {
 	currentSequence  uint64
 	stopCtx          context.Context
 	stopCancel       context.CancelFunc
-	lastAckError     atomic.Value // the last acknowledged error received
 }
 
 type TableScanner struct {
@@ -210,7 +209,7 @@ func (in *MysqlScanInput) newDMLMessage(row []interface{}, pkVal []interface{}, 
 
 func (in *MysqlScanInput) Ack(msg *core.Message, err error) {
 	if err != nil {
-		in.lastAckError.Store(err)
+		in.SetLastAckError(err)
 		return
 	}
 	ts, _ := msg.GetTableSchema()
@@ -233,8 +232,8 @@ func (in *MysqlScanInput) Ack(msg *core.Message, err error) {
 }
 
 func (in *MysqlScanInput) GetState() ([]byte, bool) {
-	if in.lastAckError.Load() != nil {
-		in.GetLogger().Error("GetState with error", log.Error(in.lastAckError.Load().(error)))
+	if in.GetLastAckError() != nil {
+		in.GetLogger().Error("GetState with error", log.Error(in.GetLastAckError()))
 		return nil, true
 	}
 

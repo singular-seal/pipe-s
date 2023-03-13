@@ -102,7 +102,12 @@ func (in *KafkaInput) Stop() {
 
 func (in *KafkaInput) Ack(msg *core.Message, err error) {
 	if err != nil {
+		in.SetLastAckError(err)
 		in.RaiseError(err)
+		return
+	}
+	// if there was error before, then can't advance offset
+	if in.GetLastAckError() != nil {
 		return
 	}
 	session, ok := msg.GetMeta(core.MetaKafkaConsumerSession)

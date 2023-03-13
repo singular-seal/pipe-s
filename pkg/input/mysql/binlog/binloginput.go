@@ -92,8 +92,7 @@ type MysqlBinlogInput struct {
 	syncer        *replication.DisruptorBinlogSyncer
 	eventConsumer *EventConsumer
 
-	lastAckMsg   atomic.Value // the last acknowledged message
-	lastAckError atomic.Value // the last acknowledged error received
+	lastAckMsg atomic.Value // the last acknowledged message
 
 	dnsTracker *DNSTracker // track dns change
 }
@@ -527,7 +526,7 @@ func (c *EventConsumer) newDMLMessage(pos *core.MysqlBinlogPosition, rowIndex in
 
 func (in *MysqlBinlogInput) Ack(msg *core.Message, err error) {
 	if err != nil {
-		in.lastAckError.Store(&err)
+		in.SetLastAckError(err)
 		return
 	}
 	if msg != nil {
@@ -550,9 +549,7 @@ func (in *MysqlBinlogInput) getLastAck() (msg *core.Message, err error) {
 	if val := in.lastAckMsg.Load(); val != nil {
 		msg = val.(*core.Message)
 	}
-	if val := in.lastAckError.Load(); val != nil {
-		err = *(val.(*error))
-	}
+	err = in.GetLastAckError()
 	return
 }
 
@@ -577,6 +574,7 @@ func (in *MysqlBinlogInput) GetState() (state []byte, done bool) {
 	}
 	if lastErr != nil {
 		in.GetLogger().Error("ack error received", log.Any("pos", pos), log.Error(lastErr))
+		state = nil
 		done = true
 		return
 	} else {
