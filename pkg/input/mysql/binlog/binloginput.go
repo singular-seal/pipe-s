@@ -555,6 +555,13 @@ func (in *MysqlBinlogInput) getLastAck() (msg *core.Message, err error) {
 
 func (in *MysqlBinlogInput) GetState() (state []byte, done bool) {
 	m, lastErr := in.getLastAck()
+	if lastErr != nil {
+		in.GetLogger().Error("ack error received", log.Error(lastErr))
+		state = nil
+		done = true
+		return
+	}
+
 	if m == nil {
 		return
 	}
@@ -572,14 +579,7 @@ func (in *MysqlBinlogInput) GetState() (state []byte, done bool) {
 		done = true
 		return
 	}
-	if lastErr != nil {
-		in.GetLogger().Error("ack error received", log.Any("pos", pos), log.Error(lastErr))
-		state = nil
-		done = true
-		return
-	} else {
-		return
-	}
+	return
 }
 
 func (in *MysqlBinlogInput) clearResource() {

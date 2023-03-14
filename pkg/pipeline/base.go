@@ -2,7 +2,6 @@ package pipeline
 
 import (
 	"github.com/singular-seal/pipe-s/pkg/core"
-	"github.com/singular-seal/pipe-s/pkg/log"
 	"github.com/singular-seal/pipe-s/pkg/utils"
 )
 
@@ -63,13 +62,7 @@ func (p *BasePipeline) GetProcessors() []core.Processor {
 func (p *BasePipeline) ApplyProcessors(msg *core.Message) (skip bool, err error) {
 	for _, processor := range p.processors {
 		skip, err = processor.Process(msg)
-		if err != nil {
-			p.GetLogger().Error("process message error", log.String("id", processor.GetID()), log.Error(err))
-			p.GetInput().Ack(msg, err)
-			return
-		}
-		if skip {
-			p.GetInput().Ack(msg, err)
+		if err != nil || skip {
 			return
 		}
 	}
