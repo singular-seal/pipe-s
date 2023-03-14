@@ -1,18 +1,18 @@
 {
   "Task": {
-    "ID": "kafka_log",
+    "ID": "kafka_db",
     "LogPath": ".",
     "StateStore": {
       "ID": "default",
       "Type": "file",
-      "Path": "1.data",
-      "SyncIntervalMS": 15000
+      "Path": "kafka_mysql.data",
+      "SaveIntervalMS": 15000
     },
     "Metrics": {
       "Port": 7778
     },
     "Pipeline": {
-      "ID": "kafka-log-pipeline",
+      "ID": "kafka-db-pipeline",
       "Type": "DisruptorPipeline",
       "Input": {
         "Type": "KafkaInput",
@@ -20,9 +20,9 @@
           "192.168.18.14:9092"
         ],
         "Topics": [
-          "test"
+          "pipes_test_topic"
         ],
-        "ConsumerGroup": "my-group",
+        "ConsumerGroup": "pipes_test_group",
         "FromBeginning": true
       },
       "Processors": [
@@ -36,7 +36,7 @@
         "Port": 3307,
         "User": "root",
         "Password": "root",
-        "Concurrency": 64,
+        "Concurrency": 16,
         "RoutingBy": "PrimaryKey"
       }
     }
