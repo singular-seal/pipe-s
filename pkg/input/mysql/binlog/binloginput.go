@@ -524,6 +524,8 @@ func (c *EventConsumer) newDMLMessage(pos *core.MysqlBinlogPosition, rowIndex in
 	return m
 }
 
+// Ack won't be invoked concurrently which is guaranteed by pipeline, but it may happen at the same
+// time with GetState so still need atomic operations.
 func (in *MysqlBinlogInput) Ack(msg *core.Message, err error) {
 	if err != nil {
 		in.SetLastAckError(err)
@@ -546,10 +548,10 @@ func (in *MysqlBinlogInput) SetState(state []byte) (err error) {
 }
 
 func (in *MysqlBinlogInput) getLastAck() (msg *core.Message, err error) {
+	err = in.GetLastAckError()
 	if val := in.lastAckMsg.Load(); val != nil {
 		msg = val.(*core.Message)
 	}
-	err = in.GetLastAckError()
 	return
 }
 
