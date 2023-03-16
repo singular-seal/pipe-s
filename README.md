@@ -18,19 +18,19 @@ Software: mysql 8.0.32, kafka 2.4.0
 Source mysql, dest mysql and kafka are installed on the same machine but different ssd.     
 Traffic: Produced by standard sysbench mysql scripts.  
 
-| traffic                                | scenario               | throughput | tps  | description                                                           |
-|----------------------------------------|------------------------|------------|------|-----------------------------------------------------------------------|
-| big transaction insert only            | go-mysql               | 280MB      | -    | go-mysql 1.7.0 fetch event then abandon                               |
-| big transaction insert only            | pipe-s                 | 400MB      | -    | deeply resolve event and DummyOutput                                  |
-| big transaction insert only            | DisruptorBinlogSyncer  | 1.4GB      | -    | DisruptorBinlogSyncer is pipe-s's component, fetch event then abandon |
-| small transaction insert only          | go-mysql               | 68MB       | -    | 1.7.0 just get event and abandon                                      |
-| small transaction insert only          | pipe-s(filepos mode)   | 270MB      | -    | deep resolve event and DummyOutput                                    |
-| small transaction insert only          | pipe-s(gtid mode)      | 228MB      | -    | deep resolve event and DummyOutput                                    |
-| small transaction insert only          | pipe-s to kafka        | 200MB      | 400K | gtid mode                                                             |
-| small transaction insert only          | pipe-s to mysql stream | 35MB       | 70K  | gtid mode, steam sync                                                 |
-| small transaction insert only          | pipe-s to mysql batch  | 70MB       | 140K | gtid mode, batch sync                                                 |
-| small transaction insert update delete | pipe-s to mysql steam  | 23MB       | 46K  | gtid mode, steam sync                                                 |
-| small transaction insert update delete | pipe-s to mysql batch  | 65MB       | 130K | gtid mode, batch sync                                                 |
+| traffic                                | scenario               | throughput | tps  | description                                                                         |
+|----------------------------------------|------------------------|------------|------|-------------------------------------------------------------------------------------|
+| big transaction insert only            | go-mysql               | 280MB      | -    | [go-mysql](https://github.com/go-mysql-org/go-mysql) 1.7.0 fetch event then abandon |
+| big transaction insert only            | pipe-s                 | 400MB      | -    | deeply resolve event and DummyOutput                                                |
+| big transaction insert only            | DisruptorBinlogSyncer  | 1.4GB      | -    | DisruptorBinlogSyncer is pipe-s's component, fetch event then abandon               |
+| small transaction insert only          | go-mysql               | 68MB       | -    | go-mysql 1.7.0 just fetch event and abandon                                         |
+| small transaction insert only          | pipe-s(filepos mode)   | 270MB      | -    | deep resolve event and DummyOutput                                                  |
+| small transaction insert only          | pipe-s(gtid mode)      | 228MB      | -    | deep resolve event and DummyOutput                                                  |
+| small transaction insert only          | pipe-s to kafka        | 200MB      | 400K | gtid mode                                                                           |
+| small transaction insert only          | pipe-s to mysql stream | 35MB       | 70K  | gtid mode, steam sync                                                               |
+| small transaction insert only          | pipe-s to mysql batch  | 70MB       | 140K | gtid mode, batch sync                                                               |
+| small transaction insert update delete | pipe-s to mysql steam  | 23MB       | 46K  | gtid mode, steam sync                                                               |
+| small transaction insert update delete | pipe-s to mysql batch  | 65MB       | 130K | gtid mode, batch sync                                                               |
 
 ### Extensibility
 
