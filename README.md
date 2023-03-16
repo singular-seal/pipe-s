@@ -87,4 +87,4 @@ to do
 
 # Contacts
 
-Send message to [me](mailto:singular.seal@gmail.com) if you have any questions to discuss.  
+Gmail: singular.seal@gmail.com, any feedback is welcome.  
