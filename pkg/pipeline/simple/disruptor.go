@@ -18,8 +18,8 @@ const (
 )
 
 type DisruptorPipelineConfig struct {
-	Concurrency int
-	BufferSize  int
+	Concurrency int // how many goroutines are used to processing
+	BufferSize  int // disruptor ring buffer size
 }
 
 func NewDisruptorPipeline() *DisruptorPipeline {

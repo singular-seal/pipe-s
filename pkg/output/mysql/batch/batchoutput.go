@@ -33,16 +33,15 @@ type MysqlBatchOutput struct {
 }
 
 type MysqlBatchOutputConfig struct {
-	ID             string
-	Host           string
-	Port           uint16
-	User           string
-	Password       string
-	MaxConnections int
-	// processor count for each table
-	TableConcurrency int
-	FlushIntervalMS  int64
-	FlushBatchSize   int
+	ID               string
+	Host             string // standard mysql host, port, user and password config
+	Port             uint16
+	User             string
+	Password         string
+	MaxConnections   int   // max connection count
+	TableConcurrency int   // processor count for each table
+	FlushIntervalMS  int64 // batch flush interval
+	FlushBatchSize   int   // batch flush size
 	// max sql statements sent in one api call, restricted by column counts and mysql server side restriction
 	// needn't change this normally
 	SqlBatchSize int

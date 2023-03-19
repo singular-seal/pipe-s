@@ -12,8 +12,8 @@ import (
 const DefaultConnectionTimeout = time.Second * 30
 
 type ZKStateStoreConfig struct {
-	Addresses []string
-	RootPath  string
+	Addresses []string // zookeeper server addresses
+	RootPath  string   // the root path on zk for this state store
 }
 
 type ZKStateStore struct {

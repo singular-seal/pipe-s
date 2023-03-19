@@ -34,12 +34,12 @@ const (
 
 type MysqlCheckOutputConfig struct {
 	ID       string
-	Host     string
+	Host     string // standard mysql host, port, user and password config
 	Port     uint16
 	User     string
 	Password string
 
-	ResultFilePath string
+	ResultFilePath string // where to put check result
 	// if we need skip checking for most recently updated rows, we can use UpdateTimeColumn and UpdateTimeSkipSeconds
 	// to construct a query condition like 'UpdateTimeColumn<Now()-UpdateTimeSkipSeconds'
 	// this function only works if the pk values are not modified in the pipeline because implementing a reverse pipeline

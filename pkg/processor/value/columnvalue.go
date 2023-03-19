@@ -7,9 +7,9 @@ import (
 )
 
 type ColumnValueConfig struct {
-	TableNameVariable   string
-	OutputVariable      string
-	TableColumnMappings map[string]string
+	TableNameVariable   string            // where to get the table name
+	OutputVariable      string            // the output variable name to put the column value
+	TableColumnMappings map[string]string // the column name to get value for each table
 }
 
 type ColumnValueProcessor struct {

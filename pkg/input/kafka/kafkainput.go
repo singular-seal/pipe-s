@@ -14,10 +14,10 @@ import (
 )
 
 type KafkaInputConfig struct {
-	ServerAddresses []string
-	Topics          []string
-	ConsumerGroup   string
-	FromBeginning   bool
+	ServerAddresses []string // kafka broker addresses
+	Topics          []string // kafka topics to subscribe
+	ConsumerGroup   string   // kafka consumer group
+	FromBeginning   bool     // same as sarama.OffsetOldest
 }
 
 type KafkaPosition struct {

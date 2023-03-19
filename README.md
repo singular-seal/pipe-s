@@ -1,8 +1,8 @@
-# pipe-s
+# **pipe-s** [中文](./README-cn.md)
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/singular-seal/pipe-s)](https://goreportcard.com/report/github.com/singular-seal/pipe-s)
 
-Pipe-s is a common ETL pipeline built on [go-disruptor](https://github.com/smarty-prototypes/go-disruptor)
+Pipe-s is a data replication pipeline built on [go-disruptor](https://github.com/smarty-prototypes/go-disruptor)
 and replicates data between various inputs and outputs such as mysql and kafka. It has similar functions
 like [gravity](https://github.com/moiot/gravity).
 

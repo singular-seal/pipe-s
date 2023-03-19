@@ -2,6 +2,9 @@
 * Build on disruptor and try to make as many places as possible running in parallel.
 * Everything is a component and configurable, users can compose data processing logic by configuration.
 
+# Basic Components
+![components](basic-components.jpg)
+
 # Is go-disruptor Safe?
 There's a description in go-disruptor - *This code is currently experimental and is not recommended for production environments.*
 But on June 6, 2022, there's an update on [go memory model](https://go.dev/ref/mem) and there's the 

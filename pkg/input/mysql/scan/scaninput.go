@@ -23,13 +23,13 @@ const (
 )
 
 type MysqlScanInputConfig struct {
-	Host           string
+	Host           string // mysql standard host, port, user and password
 	Port           uint16
 	User           string
 	Password       string
 	TableNameRegex string // select tables need to be replicated by regex
-	BatchSize      int
-	Concurrency    int
+	BatchSize      int    // how many records per scanning
+	Concurrency    int    // how many goroutines scanning
 }
 
 type MysqlScanInput struct {

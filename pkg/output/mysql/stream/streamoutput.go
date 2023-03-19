@@ -34,13 +34,13 @@ type MysqlStreamOutput struct {
 
 type MysqlStreamOutputConfig struct {
 	ID              string
-	Host            string
+	Host            string // standard mysql host, port, user and password config
 	Port            uint16
 	User            string
 	Password        string
-	Concurrency     int
-	RoutingBy       string
-	TaskQueueLength int
+	Concurrency     int    // how many goroutines processing the output
+	RoutingBy       string // how to distribute events to goroutines - by Table or PrimaryKey
+	TaskQueueLength int    // how many events can be buffered for one goroutine
 }
 
 type task struct {
