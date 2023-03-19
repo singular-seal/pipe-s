@@ -3,7 +3,7 @@
 * Everything is a component and configurable, users can compose data processing logic by configuration.
 
 # Basic Components
-![components](basic-components.jpg)
+![components](./basic-components.jpg)
 
 # Is go-disruptor Safe?
 There's a description in go-disruptor - *This code is currently experimental and is not recommended for production environments.*
